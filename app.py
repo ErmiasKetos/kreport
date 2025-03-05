@@ -74,7 +74,6 @@ def main():
     
     st.subheader("Add Sample Summary Row")
     with st.form("page1_samples_form", clear_on_submit=True):
-        # If Lab ID is left blank, auto-generate one.
         sample_lab_id = st.text_input("Lab ID (Leave blank for auto-generation)", value="")
         sample_id = st.text_input("Sample ID", value="")
         matrix = st.text_input("Matrix", value="Water")
@@ -120,7 +119,7 @@ def main():
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-        # Dependent dropdown for analyte and its method.
+        # Dependent dropdown for Parameter (Analyte) and its corresponding Method.
         selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
         selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter])
         col1, col2, col3, col4 = st.columns(4)
@@ -148,8 +147,8 @@ def main():
     if st.session_state["page2_data"]["results"]:
         st.write("**Current Analytical Results:**")
         for i, r in enumerate(st.session_state["page2_data"]["results"], 1):
-            st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Analysis: {r['analysis']}, "
-                     f"DF: {r['df']}, MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}")
+            st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Analysis: {r['analysis']}, DF: {r['df']}, "
+                     f"MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}")
     else:
         st.info("No analytical results added yet.")
     st.markdown("---")
@@ -296,15 +295,22 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
 
     # ---- PAGE 2: ANALYTICAL RESULTS ----
     pdf.add_page()
-    # Create a "card" with global information
+    # Header for Analytical Results
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "ANALYTICAL RESULTS", ln=True, align="L")
+    pdf.ln(3)
+    # Global info card in two columns
     pdf.set_fill_color(240, 240, 240)
     card_y = pdf.get_y()
-    pdf.rect(10, card_y, 190, 15, "FD")
+    card_height = 15
+    pdf.rect(10, card_y, 190, card_height, "FD")
     pdf.set_xy(12, card_y + 4)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, f"Workorder: {page2_data['workorder_name']}    Analysis Date: {page2_data['global_analysis_date']}", ln=True)
-    pdf.ln(8)
+    pdf.cell(90, 5, f"Workorder: {page2_data['workorder_name']}", border=0, align="L")
+    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", border=0, align="L", ln=True)
+    pdf.ln(10)
     
+    # Table of analytical results
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers2 = ["Lab ID", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
