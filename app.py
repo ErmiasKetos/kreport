@@ -306,21 +306,9 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.set_font("Arial", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Analysis Date: {page1_data['global_analysis_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Work Order: {page1_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
-
-    # "Card" with 2 columns for Workorder & Global Analysis Date
-    pdf.set_fill_color(240, 240, 240)  # light gray
-    card_y = pdf.get_y()
-    card_height = 15
-    # Draw the rectangle card across the full effective width
-    pdf.rect(15, card_y, effective_width, card_height, "FD")
-    pdf.set_xy(17, card_y + 4)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(90, 5, f"Workorder: {page2_data['workorder_name']}", border=0, align="L")
-    pdf.cell(90, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", border=0, align="L", ln=True)
-    pdf.ln(10)
 
     # Table headers
     pdf.set_font("Arial", "B", 10)
