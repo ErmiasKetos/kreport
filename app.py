@@ -3,7 +3,7 @@ from fpdf import FPDF
 import datetime
 import io
 
-# For dependent dropdown: example analytes mapped to methods.
+# Example dependent dropdown: analytes mapped to possible methods.
 analyte_to_methods = {
     "Nickel": ["SW6010B", "EPA 200.7", "Method2"],
     "Zinc": ["SW6010B", "EPA 200.7", "Method2"],
@@ -13,23 +13,34 @@ analyte_to_methods = {
     "Cadmium": ["EPA 200.8", "MethodY"],
     "Copper": ["SW6010B", "EPA 200.7"],
     "Lead": ["SW6010B", "EPA 200.8"],
-    # Add additional analytes and methods as needed.
+    # Extend as needed...
 }
 
 def main():
     st.title("NELAC/NELAP Compliant Water Quality COA Generator")
     st.write("""
-        This app generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
-        The PDF will include:
-        1. SAMPLE SUMMARY  
-        2. ANALYTICAL RESULTS  
-        3. QUALITY CONTROL DATA  
-        4. QC DATA CROSS REFERENCE TABLE
+    This application generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
+    The PDF will have four pages:
+      1. SAMPLE SUMMARY  
+      2. ANALYTICAL RESULTS  
+      3. QUALITY CONTROL DATA  
+      4. QC DATA CROSS REFERENCE TABLE
     """)
 
-    # =====================
-    # PAGE 1: SAMPLE SUMMARY
-    # =====================
+    # ----------------------------
+    # LABORATORY INFORMATION (Common for report)
+    # ----------------------------
+    st.header("Laboratory Information")
+    lab_name = st.text_input("Lab Name", value="KELP Laboratory")
+    lab_address = st.text_input("Lab Address", value="520 Mercury Dr, Sunnyvale, CA 94085")
+    lab_email = st.text_input("Lab Email", value="info@ketos.co")
+    lab_phone = st.text_input("Lab Phone", value="(xxx) xxx-xxxx")
+
+    st.markdown("---")
+
+    # ====================
+    # Page 1: SAMPLE SUMMARY
+    # ====================
     st.header("Page 1: SAMPLE SUMMARY")
     if "page1_data" not in st.session_state:
         st.session_state["page1_data"] = {
@@ -37,9 +48,8 @@ def main():
             "report_date": datetime.date.today().strftime("%m/%d/%Y"),
             "client_name": "City of Atlantic Beach",
             "client_address": "902 Assisi Lane, Atlantic Beach, FL 32233",
-            "samples": []  # List to hold each sample summary row.
+            "samples": []
         }
-
     st.subheader("Report & Client Info")
     st.session_state["page1_data"]["report_id"] = st.text_input("Report ID", value=st.session_state["page1_data"]["report_id"])
     st.session_state["page1_data"]["report_date"] = st.text_input("Report Date", value=st.session_state["page1_data"]["report_date"])
@@ -50,7 +60,7 @@ def main():
     with st.form("page1_samples_form", clear_on_submit=True):
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            lab_id = st.text_input("Lab ID", value="")
+            sample_lab_id = st.text_input("Lab ID", value="")
         with col2:
             sample_id = st.text_input("Sample ID", value="")
         with col3:
@@ -59,9 +69,9 @@ def main():
             date_collected = st.text_input("Date Collected", value="06/17/2021 09:40")
         date_received = st.text_input("Date Received", value="06/18/2021 12:20")
         if st.form_submit_button("Add Sample"):
-            if lab_id.strip():
+            if sample_lab_id.strip():
                 st.session_state["page1_data"]["samples"].append({
-                    "lab_id": lab_id,
+                    "lab_id": sample_lab_id,
                     "sample_id": sample_id,
                     "matrix": matrix,
                     "date_collected": date_collected,
@@ -76,9 +86,9 @@ def main():
 
     st.markdown("---")
 
-    # =====================
-    # PAGE 2: ANALYTICAL RESULTS
-    # =====================
+    # ====================
+    # Page 2: ANALYTICAL RESULTS
+    # ====================
     st.header("Page 2: ANALYTICAL RESULTS")
     if "page2_data" not in st.session_state:
         st.session_state["page2_data"] = {
@@ -91,11 +101,11 @@ def main():
     with st.form("page2_results_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
         with col1:
-            lab_id = st.text_input("Lab ID", value="")
+            result_lab_id = st.text_input("Lab ID", value="")
         with col2:
             parameter = st.text_input("Parameter", value="")
         with col3:
-            result = st.text_input("Result", value="ND")
+            result_value = st.text_input("Result", value="ND")
         col4, col5 = st.columns(2)
         with col4:
             dilution_factor = st.text_input("Dilution Factor (DF)", value="")
@@ -103,11 +113,11 @@ def main():
             method_used = st.text_input("Method", value="EPA 200.8")
         analysis_date = st.text_input("Analysis Date", value="06/25/2021 17:00")
         if st.form_submit_button("Add Analytical Result"):
-            if lab_id.strip():
+            if result_lab_id.strip():
                 st.session_state["page2_data"]["results"].append({
-                    "lab_id": lab_id,
+                    "lab_id": result_lab_id,
                     "parameter": parameter,
-                    "result": result,
+                    "result": result_value,
                     "df": dilution_factor,
                     "method": method_used,
                     "analysis_date": analysis_date
@@ -121,9 +131,9 @@ def main():
 
     st.markdown("---")
 
-    # =====================
-    # PAGE 3: QUALITY CONTROL DATA
-    # =====================
+    # ====================
+    # Page 3: QUALITY CONTROL DATA
+    # ====================
     st.header("Page 3: QUALITY CONTROL DATA")
     if "page3_data" not in st.session_state:
         st.session_state["page3_data"] = { "qc_entries": [] }
@@ -156,9 +166,9 @@ def main():
 
     st.markdown("---")
 
-    # =====================
-    # PAGE 4: QUALITY CONTROL DATA CROSS REFERENCE TABLE
-    # =====================
+    # ====================
+    # Page 4: QC DATA CROSS REFERENCE TABLE
+    # ====================
     st.header("Page 4: QC DATA CROSS REFERENCE TABLE")
     if "page4_data" not in st.session_state:
         st.session_state["page4_data"] = { "cross_refs": [] }
@@ -179,7 +189,7 @@ def main():
             prep_batch = st.text_input("Prep Batch", value="ICMj/1277")
         with col6:
             batch_analysis = st.text_input("Batch Analysis", value="EPA 200.8")
-        if st.form_submit_button("Add Cross Reference"):
+        if st.form_submit_button("Add Cross Ref"):
             if cross_lab_id.strip():
                 st.session_state["page4_data"]["cross_refs"].append({
                     "lab_id": cross_lab_id,
@@ -199,11 +209,15 @@ def main():
 
     st.markdown("---")
 
-    # =====================
-    # Generate 4-Page PDF
-    # =====================
+    # ====================
+    # Generate Multi-Page PDF
+    # ====================
     if st.button("Generate 4-Page COA PDF"):
         pdf_bytes = create_multi_page_pdf(
+            lab_name=lab_name,
+            lab_address=lab_address,
+            lab_email=lab_email,
+            lab_phone=lab_phone,
             page1_data=st.session_state["page1_data"],
             page2_data=st.session_state["page2_data"],
             page3_data=st.session_state["page3_data"],
@@ -217,14 +231,22 @@ def main():
         )
 
 # -------------------------------------------------------------------
-# PDF Generation Function: Creates 4 pages with elegant formatting
+# PDF Generation Function: Creates 4 pages with elegant, compliant formatting
 # -------------------------------------------------------------------
-def create_multi_page_pdf(page1_data, page2_data, page3_data, page4_data):
+def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_data, page2_data, page3_data, page4_data):
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
 
     # ---- PAGE 1: SAMPLE SUMMARY ----
     pdf.add_page()
+    # Lab Header
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}  Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
+    
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
     pdf.ln(2)
@@ -232,12 +254,11 @@ def create_multi_page_pdf(page1_data, page2_data, page3_data, page4_data):
     pdf.cell(0, 6, f"Report ID: {page1_data['report_id']}    Report Date: {page1_data['report_date']}", ln=True, align="L")
     pdf.cell(0, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
     pdf.cell(0, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
-    pdf.ln(5)
+    pdf.ln(4)
+    
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "SAMPLE SUMMARY", ln=True, align="L")
     pdf.ln(2)
-
-    # Table headers for sample summary
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
@@ -313,7 +334,7 @@ def create_multi_page_pdf(page1_data, page2_data, page3_data, page4_data):
 
     pdf.ln(8)
     pdf.set_font("Arial", "I", 8)
-    pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of the laboratory. "
+    pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
                          "Results pertain only to the samples tested and conform to NELAC/NELAP/ELAP standards.")
     pdf.set_y(-15)
     pdf.set_font("Arial", "I", 8)
