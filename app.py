@@ -6,10 +6,10 @@ import random
 import string
 
 #####################################
-# Helper data & functions
+# Helper Data & Functions
 #####################################
 
-# Analyte -> list of possible methods
+# Mapping of analyte to list of possible methods
 analyte_to_methods = {
     "Aluminum": ["EPA 200.7", "Method A"],
     "Antimony": ["EPA 200.8", "Method X"],
@@ -38,9 +38,9 @@ def generate_id(prefix, length=4):
 
 def main():
     st.title("Water Quality COA (Auto-Generated Fields)")
-
+    
     #####################################
-    # Global Auto-Generated Constants (fixed values)
+    # Global Auto-Generated Constants (Fixed Values)
     #####################################
     lab_name = "KELP Laboratory"
     lab_address = "520 Mercury Dr, Sunnyvale, CA 94085"
@@ -49,10 +49,8 @@ def main():
     
     auto_work_order = generate_id("WO-")
     auto_coc_number = generate_id("COC-")
-    
-    # For each water sample, default dates can be today's date
-    default_date = datetime.date.today().strftime("%m/%d/%Y")
-    
+    default_date = datetime.date.today().strftime("%m/%d/%Y")  # default for sample dates
+
     #####################################
     # 0. Cover Page Data
     #####################################
@@ -60,7 +58,7 @@ def main():
         st.session_state["cover_data"] = {
             "lab_name": lab_name,
             "work_order": auto_work_order,
-            "page_info": "Page: 1 of 1",
+            # Removed "Page: 1 of 1" field per requirements.
             "project_name": "Alberta Environment and Parks",
             "client_name": "City of Edmonton",
             "address_line": "9450 - 17 Ave NW\nEdmonton AB Canada T6N 1M9",
@@ -72,7 +70,7 @@ def main():
             "po_number": "ABS 271",
             "report_title": "CERTIFICATE OF ANALYSIS",
             "comments": "None",
-            "signatories": []  # will be filled below
+            "signatories": []  # to be filled below
         }
     st.header("Cover Page Fields (Optional Edits)")
     st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
@@ -121,7 +119,7 @@ def main():
         sample_lab_id = st.text_input("Lab ID (Leave blank for auto-generation)", value="")
         sample_id = st.text_input("Sample ID", value="")
         matrix = st.text_input("Matrix", value="Water")
-        # Let users enter sample collected and received dates
+        # Now users enter the sample dates:
         sample_date_collected = st.text_input("Date Collected", value=default_date)
         sample_date_received = st.text_input("Date Received", value=default_date)
         if st.form_submit_button("Add Water Sample"):
@@ -312,7 +310,7 @@ def main():
         )
 
 #####################################
-# PDF Generation Function
+# PDF GENERATION FUNCTION
 #####################################
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       cover_data,
@@ -322,57 +320,103 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     effective_width = 180
     total_pages = 5  # Cover + 4 pages
 
+    # ---------------------------
     # 0. COVER PAGE
+    # ---------------------------
     pdf.add_page()
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 8, cover_data["lab_name"], ln=True, align="L")
-    pdf.ln(4)
-    
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
-    pdf.ln(6)
-    
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(effective_width, 6, f"Work Order: {cover_data['work_order']}", ln=True)
-    pdf.cell(effective_width, 6, f"{cover_data['page_info']}", ln=True)
-    pdf.cell(effective_width, 6, f"Project: {cover_data['project_name']}", ln=True)
-    pdf.cell(effective_width, 6, f"Analysis Type: {cover_data['analysis_type']}", ln=True)
-    pdf.ln(2)
-    
-    pdf.cell(effective_width, 6, f"Client: {cover_data['client_name']}", ln=True)
-    pdf.multi_cell(effective_width, 6, f"Address:\n{cover_data['address_line']}")
-    pdf.ln(2)
-    
-    pdf.cell(effective_width, 6, f"Phone: {cover_data['phone']}", ln=True)
-    pdf.cell(effective_width, 6, f"Date Samples Received: {cover_data['date_samples_received']}", ln=True)
-    pdf.cell(effective_width, 6, f"Date Reported: {cover_data['date_reported']}", ln=True)
-    pdf.ln(2)
-    
-    pdf.cell(effective_width, 6, f"PO #: {cover_data['po_number']}", ln=True)
-    pdf.cell(effective_width, 6, f"COC #: {cover_data['coc_number']}", ln=True)
     pdf.ln(4)
     
+    # Global Information Table (2 columns)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(effective_width, 8, "GLOBAL INFORMATION", ln=True, align="C")
+    pdf.ln(2)
+    
+    left_width = effective_width / 2
+    right_width = effective_width / 2
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(230, 230, 230)
+    
+    # Left Column
+    pdf.cell(left_width, 6, "Work Order:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["work_order"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(left_width, 6, "Project:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["project_name"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(left_width, 6, "Analysis Type:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["analysis_type"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(left_width, 6, "COC #:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["coc_number"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(left_width, 6, "PO #:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["po_number"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(left_width, 6, "Date Samples Received:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["date_samples_received"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(left_width, 6, "Date Reported:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(right_width, 6, cover_data["date_reported"], border=1, ln=True)
+    
+    pdf.ln(4)
+    
+    # Client Information Table
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(effective_width, 8, "CLIENT INFORMATION", ln=True, align="C")
+    pdf.ln(2)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(40, 6, "Client Name:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(effective_width - 40, 6, cover_data["client_name"], border=1, ln=True)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(40, 6, "Address:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1)
+    pdf.ln(2)
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(40, 6, "Phone:", border=1, fill=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(effective_width - 40, 6, cover_data["phone"], border=1, ln=True)
+    
+    pdf.ln(4)
+    
+    # Comments Section
     pdf.set_font("Arial", "B", 10)
     pdf.cell(effective_width, 6, "Comments / Case Narrative", ln=True, align="L")
     pdf.set_font("Arial", "", 10)
-    pdf.multi_cell(effective_width, 5, cover_data["comments"])
+    pdf.multi_cell(effective_width, 5, cover_data["comments"], border=1)
     pdf.ln(4)
     
-    pdf.set_font("Arial", "I", 8)
-    pdf.multi_cell(effective_width, 4, "This cover page is an additional reference. "
-                                       "No part of this cover page or any subsequent page shall be reproduced, "
-                                       "except in full, without the written consent of KELP Laboratory.")
-    pdf.ln(4)
-    
+    # Signatories Table
     pdf.set_font("Arial", "B", 10)
     pdf.cell(effective_width, 6, "Signatories", ln=True, align="L")
     pdf.set_font("Arial", "", 9)
     for signatory in cover_data["signatories"]:
-        line_text = f"{signatory['name']}, {signatory['title']}   {signatory['location']}"
-        pdf.cell(effective_width, 5, line_text, ln=True, align="L")
+        sign_line = f"{signatory['name']}, {signatory['title']} ({signatory['location']})"
+        pdf.cell(effective_width, 5, sign_line, ln=True, align="L")
     pdf.ln(6)
     
+    # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
+    # ---------------------------
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.set_fill_color(230, 230, 230)
@@ -411,7 +455,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
     
+    # ---------------------------
     # 2. PAGE 2: ANALYTICAL RESULTS
+    # ---------------------------
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(180, 8, "ANALYTICAL RESULTS", ln=True, align="L")
@@ -439,7 +485,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
     
+    # ---------------------------
     # 3. PAGE 3: QUALITY CONTROL DATA
+    # ---------------------------
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(180, 8, "QUALITY CONTROL DATA", ln=True, align="L")
@@ -460,7 +508,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
     
+    # ---------------------------
     # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
+    # ---------------------------
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(180, 8, "QC DATA CROSS REFERENCE TABLE", ln=True, align="L")
