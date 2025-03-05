@@ -3,28 +3,37 @@ from fpdf import FPDF
 import datetime
 import io
 
-# Example dependent dropdown: analytes mapped to possible methods.
+# Comprehensive analyte-to-method mapping for water quality tests.
+# (Update this dictionary with your official analytes and corresponding methods as needed.)
 analyte_to_methods = {
-    "Nickel": ["SW6010B", "EPA 200.7", "Method2"],
-    "Zinc": ["SW6010B", "EPA 200.7", "Method2"],
-    "Potassium": ["SW6010B", "EPA 200.7"],
-    "Mercury": ["SW7470A", "EPA 245.1"],
-    "Arsenic": ["EPA 200.8", "MethodX"],
-    "Cadmium": ["EPA 200.8", "MethodY"],
-    "Copper": ["SW6010B", "EPA 200.7"],
-    "Lead": ["SW6010B", "EPA 200.8"],
-    # Extend as needed...
+    "Aluminum": ["EPA 200.7", "Method A"],
+    "Antimony": ["EPA 200.8", "Method X"],
+    "Arsenic": ["EPA 200.8", "Method X"],
+    "Barium": ["EPA 200.7", "Method B"],
+    "Beryllium": ["EPA 200.7", "Method C"],
+    "Cadmium": ["EPA 200.8", "Method Y"],
+    "Chromium": ["EPA 200.7", "Method D"],
+    "Copper": ["EPA 200.7", "Method E"],
+    "Lead": ["EPA 200.8", "Method F"],
+    "Mercury": ["EPA 245.1", "Method G"],
+    "Nickel": ["EPA 200.7", "Method H"],
+    "Selenium": ["EPA 200.7", "Method I"],
+    "Silver": ["EPA 200.7", "Method J"],
+    "Thallium": ["EPA 200.8", "Method K"],
+    "Zinc": ["EPA 200.7", "Method L"],
+    # Additional analytes can be added here...
 }
 
 def main():
     st.title("NELAC/NELAP Compliant Water Quality COA Generator")
     st.write("""
-    This application generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
-    The PDF will have four pages:
-      1. SAMPLE SUMMARY  
-      2. ANALYTICAL RESULTS  
-      3. QUALITY CONTROL DATA  
-      4. QC DATA CROSS REFERENCE TABLE
+        This application generates a multi‐page Certificate of Analysis (COA) for water quality tests.
+        Users can select an analyte from a dropdown and then choose from its approved methods.
+        The final report is split into four pages:
+          1. SAMPLE SUMMARY  
+          2. ANALYTICAL RESULTS  
+          3. QUALITY CONTROL DATA  
+          4. QC DATA CROSS REFERENCE TABLE
     """)
 
     # ----------------------------
@@ -99,14 +108,14 @@ def main():
 
     st.subheader("Add Analytical Result")
     with st.form("page2_results_form", clear_on_submit=True):
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
             result_lab_id = st.text_input("Lab ID", value="")
         with col2:
             parameter = st.text_input("Parameter", value="")
+        col3, col4, col5 = st.columns(3)
         with col3:
             result_value = st.text_input("Result", value="ND")
-        col4, col5 = st.columns(2)
         with col4:
             dilution_factor = st.text_input("Dilution Factor (DF)", value="")
         with col5:
@@ -189,7 +198,7 @@ def main():
             prep_batch = st.text_input("Prep Batch", value="ICMj/1277")
         with col6:
             batch_analysis = st.text_input("Batch Analysis", value="EPA 200.8")
-        if st.form_submit_button("Add Cross Ref"):
+        if st.form_submit_button("Add Cross Reference"):
             if cross_lab_id.strip():
                 st.session_state["page4_data"]["cross_refs"].append({
                     "lab_id": cross_lab_id,
@@ -210,7 +219,7 @@ def main():
     st.markdown("---")
 
     # ====================
-    # Generate Multi-Page PDF
+    # Generate 4-Page PDF
     # ====================
     if st.button("Generate 4-Page COA PDF"):
         pdf_bytes = create_multi_page_pdf(
@@ -244,7 +253,7 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.cell(0, 6, lab_name, ln=True, align="R")
     pdf.set_font("Arial", "", 10)
     pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}  Phone: {lab_phone}", ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
     pdf.ln(4)
     
     pdf.set_font("Arial", "B", 14)
@@ -344,6 +353,7 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.output(buffer)
     buffer.seek(0)
     return buffer.read()
+
 
 if __name__ == "__main__":
     main()
