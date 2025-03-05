@@ -3,10 +3,24 @@ from fpdf import FPDF
 import datetime
 import io
 
-def main():
-    st.title("Sample Results PDF Generator")
+# Example dictionary derived from your Excel data (An Excel approach would read these pairs into a dict).
+# Each analyte maps to a list of possible methods.
+analyte_to_methods = {
+    "Nickel": ["SW6010B", "EPA 200.7", "Method2"],
+    "Zinc": ["SW6010B", "EPA 200.7", "Method2"],
+    "Potassium": ["SW6010B", "EPA 200.7"],
+    "Mercury": ["SW7470A", "EPA 245.1"],
+    "Arsenic": ["EPA 200.8", "MethodX"],
+    "Cadmium": ["EPA 200.8", "MethodY"],
+    "Copper": ["SW6010B", "EPA 200.7"],
+    "Lead": ["SW6010B", "EPA 200.8"],
+    # ... add the rest from your Excel file
+}
 
-    st.write("This app will generate a PDF report styled like your Torrent Lab screenshot.")
+def main():
+    st.title("Sample Results PDF Generator with Dependent Dropdown")
+
+    st.write("This app demonstrates how users can pick an Analyte → Method from a dependent dropdown, then enter DF, MDL, Result, and Unit.")
 
     # -----------------------------
     # 1. Basic Fields (Top Section)
@@ -41,35 +55,41 @@ def main():
         st.session_state["parameters"] = []
 
     with st.form("add_parameter_form", clear_on_submit=True):
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2 = st.columns(2)
+
         with col1:
-            parameter = st.text_input("Parameter", value="")
+            # Dependent dropdown: first pick the Analyte
+            selected_analyte = st.selectbox("Analyte", options=list(analyte_to_methods.keys()))
         with col2:
-            analysis_method = st.text_input("Analysis Method", value="SW6010B")
+            # Then pick from the corresponding methods
+            method_options = analyte_to_methods[selected_analyte]
+            selected_method = st.selectbox("Method", options=method_options)
+
+        col3, col4, col5, col6, col7 = st.columns(5)
         with col3:
             df_value = st.text_input("DF", value="")
         with col4:
             mdl_value = st.text_input("MDL", value="")
         with col5:
             pql_value = st.text_input("PQL", value="")
-        
-        col6, col7, col8, col9 = st.columns(4)
         with col6:
             result_value = st.text_input("Result", value="")
         with col7:
             unit_value = st.text_input("Unit", value="mg/L")
+
+        col8, col9, col10 = st.columns(3)
         with col8:
             analyzed_date = st.text_input("Analyzed Date", value="12/08/22, 13:18")
         with col9:
             analyzed_by = st.text_input("Analyzed By", value="AT")
-        
-        analytical_batch = st.text_input("Analytical Batch", value="471280")
+        with col10:
+            analytical_batch = st.text_input("Analytical Batch", value="471280")
 
         submit_button = st.form_submit_button("Add Parameter")
-        if submit_button and parameter.strip():
+        if submit_button:
             st.session_state["parameters"].append({
-                "parameter": parameter,
-                "analysis_method": analysis_method,
+                "parameter": selected_analyte,
+                "analysis_method": selected_method,
                 "df": df_value,
                 "mdl": mdl_value,
                 "pql": pql_value,
@@ -85,8 +105,7 @@ def main():
         st.write("**Current Parameters:**")
         for idx, p in enumerate(st.session_state["parameters"], start=1):
             st.write(
-                f"{idx}. **{p['parameter']}** | "
-                f"Method: {p['analysis_method']}, "
+                f"{idx}. **{p['parameter']}** - Method: {p['analysis_method']}, "
                 f"DF: {p['df']}, MDL: {p['mdl']}, PQL: {p['pql']}, "
                 f"Result: {p['result']} {p['unit']}, "
                 f"Analyzed Date: {p['analyzed_date']}, "
@@ -167,15 +186,13 @@ def create_pdf(
     pdf.cell(0, 8, "Sample Information", ln=True)
     pdf.set_font("Arial", "", 11)
 
-    # We'll do a two-column layout for these fields
-    # Left column
+    # Two-column approach
     left_info = [
         ("Client Sample ID", client_sample_id),
         ("Project Name", project_name),
         ("Project #", project_number),
         ("Sample Date", sample_date),
     ]
-    # Right column
     right_info = [
         ("Lab Sample ID", lab_sample_id),
         ("Sample Matrix", sample_matrix),
@@ -185,23 +202,19 @@ def create_pdf(
         ("Prep Analyst", prep_analyst)
     ]
 
-    # We'll create a small function to draw a label-value pair
     def info_line(label, value, width_label=40, width_value=60):
         pdf.set_font("Arial", "B", 10)
         pdf.cell(width_label, 6, f"{label}:", border=0)
         pdf.set_font("Arial", "", 10)
         pdf.cell(width_value, 6, str(value), border=0)
 
-    # We can do 4 lines for left side, 5 lines for right side
     max_lines = max(len(left_info), len(right_info))
     for i in range(max_lines):
-        pdf.set_font("Arial", "", 10)
-        pdf.ln(6)  # new line
+        pdf.ln(6)
         if i < len(left_info):
             label_l, val_l = left_info[i]
             info_line(label_l, val_l)
         else:
-            # empty
             pdf.cell(100, 6, "", border=0)
 
         if i < len(right_info):
@@ -211,7 +224,6 @@ def create_pdf(
             pdf.set_font("Arial", "", 10)
             pdf.cell(0, 6, str(val_r), border=0)
         else:
-            # empty
             pdf.cell(40, 6, "", border=0)
             pdf.cell(0, 6, "", border=0)
 
@@ -222,11 +234,12 @@ def create_pdf(
     pdf.cell(0, 8, "Parameters:", ln=True)
     pdf.ln(2)
 
-    # Table header
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
-    # param, analysis method, DF, MDL, PQL, result, unit, analyzed date, analyzed by, analytical batch
-    header_cols = ["Parameter", "Analysis Method", "DF", "MDL", "PQL", "Result", "Unit", "Analyzed Date", "Analyzed By", "Analytical Batch"]
+    header_cols = [
+        "Parameter", "Analysis Method", "DF", "MDL", "PQL",
+        "Result", "Unit", "Analyzed Date", "Analyzed By", "Analytical Batch"
+    ]
     col_widths = [28, 30, 12, 12, 12, 16, 14, 26, 16, 20]
 
     for h, w in zip(header_cols, col_widths):
@@ -251,13 +264,11 @@ def create_pdf(
             pdf.cell(w, 8, str(val), border=1, align="C")
         pdf.ln(8)
 
-    # Footer disclaimers or spacing
     pdf.ln(10)
     pdf.set_font("Arial", "I", 9)
     pdf.multi_cell(0, 5, "All results relate only to the items/samples tested. "
                          "This report shall not be reproduced, except in full, without written approval.")
     
-    # Convert PDF to bytes
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
