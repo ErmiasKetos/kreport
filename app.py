@@ -252,14 +252,18 @@ def main():
 
 # -------------------------------------------------------------------
 # PDF Generation Function: Creates 4 pages with elegant, compliant formatting
+# All tables are set to use the effective page width (180 mm)
 # -------------------------------------------------------------------
 def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_data, page2_data, page3_data, page4_data):
+    # For an A4 page with 15 mm margins, effective width is 180 mm.
+    effective_width = 180
+
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
 
     # ---- PAGE 1: SAMPLE SUMMARY ----
     pdf.add_page()
-    # Lab Header
+    # Lab Header (right aligned, using effective width)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 6, lab_name, ln=True, align="R")
     pdf.set_font("Arial", "", 10)
@@ -271,19 +275,17 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
     pdf.ln(2)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
-    pdf.cell(0, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(0, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
-    pdf.cell(0, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}    Report Date: {page1_data['report_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
     pdf.ln(4)
     
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "SAMPLE SUMMARY", ln=True, align="L")
+    pdf.cell(effective_width, 8, "SAMPLE SUMMARY", ln=True, align="L")
     pdf.ln(2)
     pdf.set_font("Arial", "B", 10)
-    pdf.set_fill_color(230, 230, 230)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]
+    widths = [30, 40, 30, 40, 40]  # sums to 180
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -298,24 +300,25 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.add_page()
     # Header for Analytical Results
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "ANALYTICAL RESULTS", ln=True, align="L")
+    pdf.cell(effective_width, 8, "ANALYTICAL RESULTS", ln=True, align="L")
     pdf.ln(3)
-    # Global info card in two columns
-    pdf.set_fill_color(240, 240, 240)
+    # Global info card in two columns (card width = effective_width)
     card_y = pdf.get_y()
     card_height = 15
-    pdf.rect(10, card_y, 190, card_height, "FD")
-    pdf.set_xy(12, card_y + 4)
+    pdf.rect(15, card_y, effective_width, card_height, "FD")  # starting at left margin = 15 mm
+    pdf.set_xy(17, card_y + 4)
     pdf.set_font("Arial", "", 10)
+    # Split into two columns each of 90 mm
     pdf.cell(90, 5, f"Workorder: {page2_data['workorder_name']}", border=0, align="L")
-    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", border=0, align="L", ln=True)
+    pdf.cell(90, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", border=0, align="L", ln=True)
     pdf.ln(10)
     
-    # Table of analytical results
+    # Table of analytical results: total width = 180 mm.
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers2 = ["Lab ID", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-    widths2 = [25, 30, 30, 15, 15, 15, 25, 15]
+    # Adjusted widths to sum to 180: e.g. [25, 35, 30, 15, 15, 15, 30, 15]
+    widths2 = [25, 35, 30, 15, 15, 15, 30, 15]
     for h, w in zip(headers2, widths2):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -329,12 +332,12 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     # ---- PAGE 3: QUALITY CONTROL DATA ----
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "QUALITY CONTROL DATA", ln=True, align="L")
+    pdf.cell(effective_width, 8, "QUALITY CONTROL DATA", ln=True, align="L")
     pdf.ln(3)
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers3 = ["QC Batch", "QC Method", "Parameter", "Blank Result"]
-    widths3 = [35, 35, 40, 70]
+    widths3 = [35, 35, 40, 70]  # sums to 180
     for h, w in zip(headers3, widths3):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -348,12 +351,13 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     # ---- PAGE 4: QC DATA CROSS REFERENCE TABLE ----
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "QC DATA CROSS REFERENCE TABLE", ln=True, align="L")
+    pdf.cell(effective_width, 8, "QC DATA CROSS REFERENCE TABLE", ln=True, align="L")
     pdf.ln(3)
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers4 = ["Lab ID", "Sample ID", "Prep Method", "Analysis Method", "Prep Batch", "Batch Analysis"]
-    widths4 = [25, 30, 30, 30, 35, 35]
+    # Adjusted widths to sum to 180: [25, 30, 30, 30, 35, 30]
+    widths4 = [25, 30, 30, 30, 35, 30]
     for h, w in zip(headers4, widths4):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -376,7 +380,6 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.output(buffer)
     buffer.seek(0)
     return buffer.read()
-
 
 if __name__ == "__main__":
     main()
