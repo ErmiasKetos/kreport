@@ -5,7 +5,7 @@ import io
 import random
 import string
 
-# Analyte -> list of possible methods
+# Comprehensive analyte-to-method mapping for water quality tests.
 analyte_to_methods = {
     "Aluminum": ["EPA 200.7", "Method A"],
     "Antimony": ["EPA 200.8", "Method X"],
@@ -24,16 +24,25 @@ analyte_to_methods = {
     "Zinc": ["EPA 200.7", "Method L"],
 }
 
-# Helper function to generate a short random ID with a prefix
+# Helper function to generate a short random ID with a prefix.
 def generate_id(prefix, length=4):
     return prefix + ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 def main():
-    st.title("Water Quality COA (NELAC/NELAP Compliant)")
+    st.title("NELAC/NELAP Compliant Water Quality COA Generator")
+    st.write("""
+    This application generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
+    
+    The final PDF will have four pages:
+      1. SAMPLE SUMMARY  
+      2. ANALYTICAL RESULTS  
+      3. QUALITY CONTROL DATA  
+      4. QC DATA CROSS REFERENCE TABLE
+    """)
 
-    # ---------------------------
-    # Lab Info
-    # ---------------------------
+    # ----------------------------
+    # LABORATORY INFORMATION (Common for report)
+    # ----------------------------
     st.header("Laboratory Information")
     lab_name_input = st.text_input("Lab Name", value="KELP Laboratory")
     lab_address_input = st.text_input("Lab Address", value="520 Mercury Dr, Sunnyvale, CA 94085")
@@ -104,13 +113,11 @@ def main():
 
     st.subheader("Add Analytical Result")
     with st.form("page2_results_form", clear_on_submit=True):
-        # Let user choose Lab ID from samples on Page 1.
         lab_ids = [s["lab_id"] for s in st.session_state["page1_data"]["samples"]]
         if lab_ids:
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-        # Dependent dropdown for Parameter -> Method
         selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
         selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter])
         col1, col2, col3, col4 = st.columns(4)
@@ -136,12 +143,11 @@ def main():
                     "result": result_value,
                     "unit": unit_value
                 })
-
     if st.session_state["page2_data"]["results"]:
         st.write("**Current Analytical Results:**")
         for i, r in enumerate(st.session_state["page2_data"]["results"], 1):
-            st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Analysis: {r['analysis']}, DF: {r['df']}, "
-                     f"MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}")
+            st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Analysis: {r['analysis']}, "
+                     f"DF: {r['df']}, MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}")
     else:
         st.info("No analytical results added yet.")
     st.markdown("---")
@@ -250,14 +256,12 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Effective page width after 15 mm margins on each side
+    # Effective page width after 15 mm margins (A4 width 210 - 15*2 = 180)
     effective_width = 180
 
     # ---- PAGE 1: SAMPLE SUMMARY ----
     pdf.add_page()
-    # Light gray for table headers
     pdf.set_fill_color(230, 230, 230)
-    # Lab header
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 6, lab_name, ln=True, align="R")
     pdf.set_font("Arial", "", 10)
@@ -268,8 +272,6 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
     pdf.ln(2)
-
-    # Page 1 main data
     pdf.set_font("Arial", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
@@ -280,60 +282,49 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.set_font("Arial", "B", 12)
     pdf.cell(effective_width, 8, "SAMPLE SUMMARY", ln=True, align="L")
     pdf.ln(2)
-
     pdf.set_font("Arial", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]  # sum to 180
-    # Header row
+    widths = [30, 40, 30, 40, 40]  # total = 180
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
-
-    # Rows
     pdf.set_font("Arial", "", 10)
     for s in page1_data["samples"]:
-        row_vals = [s["lab_id"], s["sample_id"], s["matrix"], s["date_collected"], s["date_received"]]
-        for val, w in zip(row_vals, widths):
+        row = [s["lab_id"], s["sample_id"], s["matrix"], s["date_collected"], s["date_received"]]
+        for val, w in zip(row, widths):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
 
-    # ---- PAGE 2: ANALYTICAL RESULTS ---- 
+    # ---- PAGE 2: ANALYTICAL RESULTS ----
     pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(effective_width, 8, "ANALYTICAL RESULTS", ln=True, align="L")
     pdf.ln(3)
     
+    # Global info card in two columns within a rectangle of width effective_width.
+    pdf.set_fill_color(240, 240, 240)
+    card_y = pdf.get_y()
+    card_height = 15
+    pdf.rect(15, card_y, effective_width, card_height, "FD")
+    pdf.set_xy(17, card_y + 4)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
-    pdf.ln(4)
-
-    # Table headers
+    # Split into two columns of width effective_width/2 each (90 mm each)
+    pdf.cell(90, 5, f"Workorder: {page2_data['workorder_name']}", border=0, align="L")
+    pdf.cell(90, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", border=0, align="L", ln=True)
+    pdf.ln(10)
+    
+    # Table headers (width = effective_width)
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
-    # widths must sum to 180
     headers2 = ["Lab ID", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-    widths2 = [25, 35, 30, 15, 15, 15, 30, 15]
+    widths2 = [25, 35, 30, 15, 15, 15, 30, 15]  # total = 180
     for h, w in zip(headers2, widths2):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
-
-    # Rows
     pdf.set_font("Arial", "", 10)
     for r in page2_data["results"]:
-        row_data = [
-            r["lab_id"],
-            r["parameter"],
-            r["analysis"],
-            r["df"],
-            r["mdl"],
-            r["pql"],
-            r["result"],
-            r["unit"]
-        ]
-        for val, w in zip(row_data, widths2):
+        row = [r["lab_id"], r["parameter"], r["analysis"], r["df"], r["mdl"], r["pql"], r["result"], r["unit"]]
+        for val, w in zip(row, widths2):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
 
@@ -342,19 +333,17 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.set_font("Arial", "B", 12)
     pdf.cell(effective_width, 8, "QUALITY CONTROL DATA", ln=True, align="L")
     pdf.ln(3)
-
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers3 = ["QC Batch", "QC Method", "Parameter", "Blank Result"]
-    widths3 = [35, 35, 40, 70]  # sum = 180
+    widths3 = [35, 35, 40, 70]  # total = 180
     for h, w in zip(headers3, widths3):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
-
     pdf.set_font("Arial", "", 10)
     for q in page3_data["qc_entries"]:
-        row_vals = [q["qc_batch"], q["qc_method"], q["parameter"], q["blank_result"]]
-        for val, w in zip(row_vals, widths3):
+        row = [q["qc_batch"], q["qc_method"], q["parameter"], q["blank_result"]]
+        for val, w in zip(row, widths3):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
 
@@ -363,41 +352,28 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.set_font("Arial", "B", 12)
     pdf.cell(effective_width, 8, "QC DATA CROSS REFERENCE TABLE", ln=True, align="L")
     pdf.ln(3)
-
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers4 = ["Lab ID", "Sample ID", "Prep Method", "Analysis Method", "Prep Batch", "Batch Analysis"]
-    widths4 = [25, 30, 30, 30, 35, 30]  # sum = 180
+    widths4 = [25, 30, 30, 30, 35, 30]  # total = 180
     for h, w in zip(headers4, widths4):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
-
     pdf.set_font("Arial", "", 10)
     for c in page4_data["cross_refs"]:
-        row_vals = [
-            c["lab_id"],
-            c["sample_id"],
-            c["prep_method"],
-            c["analysis_method"],
-            c["prep_batch"],
-            c["batch_analysis"]
-        ]
-        for val, w in zip(row_vals, widths4):
+        row = [c["lab_id"], c["sample_id"], c["prep_method"], c["analysis_method"], c["prep_batch"], c["batch_analysis"]]
+        for val, w in zip(row, widths4):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
 
-    # Disclaimer
     pdf.ln(8)
     pdf.set_font("Arial", "I", 8)
     pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
                          "Results pertain only to the samples tested and conform to NELAC/NELAP/ELAP standards.")
-
-    # Page footer
     pdf.set_y(-15)
     pdf.set_font("Arial", "I", 8)
     pdf.cell(0, 10, f"Page {pdf.page_no()} of 4", 0, 0, "C")
 
-    # Return PDF
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
