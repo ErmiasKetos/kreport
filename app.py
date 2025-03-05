@@ -304,10 +304,10 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
     pdf.ln(3)
     
     pdf.set_font("Arial", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Analysis Date: {page1_data['global_analysis_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Work Order: {page1_data['workorder_name']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
 
     # Table headers
