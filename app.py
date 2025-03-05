@@ -3,264 +3,342 @@ from fpdf import FPDF
 import datetime
 import io
 
-# Example dictionary for dependent dropdown (Analyte -> Methods).
-analyte_to_methods = {
-    "Nickel": ["SW6010B", "EPA 200.7", "Method2"],
-    "Zinc": ["SW6010B", "EPA 200.7", "Method2"],
-    "Potassium": ["SW6010B", "EPA 200.7"],
-    "Mercury": ["SW7470A", "EPA 245.1"],
-    "Arsenic": ["EPA 200.8", "MethodX"],
-    "Cadmium": ["EPA 200.8", "MethodY"],
-    "Copper": ["SW6010B", "EPA 200.7"],
-    "Lead": ["SW6010B", "EPA 200.8"],
-    # ... Add more as needed
-}
+# For demonstration, we'll store user inputs in multiple session_state lists/dicts,
+# then compile them into a 4-page PDF.
 
 def main():
-    st.title("Apex-Style Analytical Report Generator")
+    st.title("4-Page COA Generator (Inspired by Sample Report)")
 
-    st.write(
-        "This app creates a PDF report with a layout inspired by the Apex Laboratories example, "
-        "including a dependent dropdown for Analyte → Method."
-    )
-
-    # -------------------------------------------------------------------
-    # 1. Lab & Report Header
-    # -------------------------------------------------------------------
-    st.header("Laboratory & Report Header")
-    lab_name = st.text_input("Lab Name", value="Apex Laboratories LLC")
-    lab_address = st.text_input("Lab Address", value="6700 S.W. Sandburg Street, Tigard OR 97223")
-    lab_phone = st.text_input("Lab Phone", value="(503) 718-2323")
-    lab_fax = st.text_input("Lab Fax", value="(503) 624-1649")
-    report_number = st.text_input("Report #", value="AA1137-01")
-    date_reported = st.date_input("Date Reported", value=datetime.date.today())
-    project_manager = st.text_input("Project Manager / Reviewer", value="Jason Wadsock, Project Manager")
-
-    st.markdown("---")
+    st.write("""
+    This app will generate a multi-page PDF with:
+    1) SAMPLE SUMMARY
+    2) ANALYTICAL RESULTS
+    3) QUALITY CONTROL DATA
+    4) QUALITY CONTROL DATA CROSS REFERENCE TABLE
+    """)
 
     # -------------------------------------------------------------------
-    # 2. Client / Project Info
+    # Page 1: SAMPLE SUMMARY
     # -------------------------------------------------------------------
-    st.header("Client & Project Info")
-    client_name = st.text_input("Client Name", value="GQ Consulting")
-    client_address = st.text_input("Client Address", value="16800 SW 65th Ave, Suite 201, Lake Oswego, OR 97035")
-    project_name = st.text_input("Project Name", value="Parkland Park & Rec")
-    sample_matrix = st.text_input("Sample Matrix", value="Drinking Water")
-    # Additional fields from screenshot
-    date_sampled = st.date_input("Date Sampled", value=datetime.date.today())
-    # Possibly a field for "Purchase Order" or "Project #"
-    purchase_order = st.text_input("Purchase Order / Project #", value="")
-    # user can also specify "Sample ID" or "Field ID"
-    field_id = st.text_input("Client Field ID", value="1-40-B-7-A10 (AA#1157-01)")
+    st.header("Page 1: SAMPLE SUMMARY")
+    # Basic metadata for the first page
+    if "page1_data" not in st.session_state:
+        st.session_state["page1_data"] = {
+            "report_id": "1064819",
+            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
+            "client_name": "City of Atlantic Beach",
+            "client_address": "902 Assisi Lane, Atlantic Beach, FL 32233",
+            "samples": []  # will hold multiple sample lines
+        }
 
-    st.markdown("---")
+    # Let user override default
+    st.session_state["page1_data"]["report_id"] = st.text_input("Report ID", value=st.session_state["page1_data"]["report_id"])
+    st.session_state["page1_data"]["report_date"] = st.text_input("Report Date", value=st.session_state["page1_data"]["report_date"])
+    st.session_state["page1_data"]["client_name"] = st.text_input("Client Name", value=st.session_state["page1_data"]["client_name"])
+    st.session_state["page1_data"]["client_address"] = st.text_input("Client Address", value=st.session_state["page1_data"]["client_address"])
 
-    # -------------------------------------------------------------------
-    # 3. Analyte Table (with Dependent Dropdown)
-    # -------------------------------------------------------------------
-    st.header("Analyte Entries (Parameters)")
-    if "analytes" not in st.session_state:
-        st.session_state["analytes"] = []
-
-    with st.form("analyte_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
+    st.subheader("Add Samples to SAMPLE SUMMARY")
+    with st.form("page1_samples_form", clear_on_submit=True):
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            selected_analyte = st.selectbox("Analyte", list(analyte_to_methods.keys()))
+            lab_id = st.text_input("Lab ID", value="")
         with col2:
-            possible_methods = analyte_to_methods[selected_analyte]
-            selected_method = st.selectbox("Method", possible_methods)
-
-        col3, col4, col5, col6, col7 = st.columns(5)
+            sample_id = st.text_input("Sample ID", value="")
         with col3:
-            detection_limit = st.text_input("Detection Limit", value="0.0050")
+            matrix = st.text_input("Matrix", value="Water")
         with col4:
-            result_value = st.text_input("Result", value="ND")
-        with col5:
-            unit_value = st.text_input("Unit", value="mg/L")
-        with col6:
-            dilution_factor = st.text_input("Dilution Factor", value="")
-        with col7:
-            date_analyzed = st.text_input("Date Analyzed", value="")
-
-        method_ref = st.text_input("Method Ref / Type", value="EPA 200.8 (ICP-MS)")
-        # optional: date/time of method or additional fields
-        st.write("Optionally, specify any additional fields below (MDL, PQL, etc.)")
-
-        if st.form_submit_button("Add Analyte"):
-            st.session_state["analytes"].append({
-                "analyte": selected_analyte,
-                "method": selected_method,
-                "detection_limit": detection_limit,
-                "result": result_value,
-                "unit": unit_value,
-                "dilution_factor": dilution_factor,
-                "date_analyzed": date_analyzed,
-                "method_ref": method_ref
+            date_collected = st.text_input("Date Collected", value="06/17/2021 09:40")
+        date_received = st.text_input("Date Received", value="06/18/2021 12:20")
+        submit_p1 = st.form_submit_button("Add to Sample Summary")
+        if submit_p1 and lab_id.strip():
+            st.session_state["page1_data"]["samples"].append({
+                "lab_id": lab_id,
+                "sample_id": sample_id,
+                "matrix": matrix,
+                "date_collected": date_collected,
+                "date_received": date_received
             })
 
-    if st.session_state["analytes"]:
-        st.write("**Current Analytes**")
-        for idx, entry in enumerate(st.session_state["analytes"], 1):
-            st.write(
-                f"{idx}. **{entry['analyte']}**  "
-                f"(Method: {entry['method']} | "
-                f"Detection Limit: {entry['detection_limit']} | "
-                f"Result: {entry['result']} {entry['unit']} | "
-                f"Dilution: {entry['dilution_factor']} | "
-                f"Analyzed: {entry['date_analyzed']} | "
-                f"Method Ref: {entry['method_ref']})"
-            )
+    if st.session_state["page1_data"]["samples"]:
+        st.write("**Current Samples in Summary**")
+        for i, s in enumerate(st.session_state["page1_data"]["samples"], 1):
+            st.write(f"{i}) Lab ID: {s['lab_id']}, Sample ID: {s['sample_id']}, "
+                     f"Matrix: {s['matrix']}, Collected: {s['date_collected']}, "
+                     f"Received: {s['date_received']}")
     else:
-        st.info("No analytes added yet.")
+        st.info("No samples yet for Page 1.")
 
     st.markdown("---")
 
     # -------------------------------------------------------------------
-    # 4. Generate PDF
+    # Page 2: ANALYTICAL RESULTS
     # -------------------------------------------------------------------
-    if st.button("Generate Apex-Style PDF"):
-        pdf_bytes = create_pdf_report(
-            lab_name=lab_name,
-            lab_address=lab_address,
-            lab_phone=lab_phone,
-            lab_fax=lab_fax,
-            report_number=report_number,
-            date_reported=date_reported.strftime("%m/%d/%Y"),
-            project_manager=project_manager,
-            client_name=client_name,
-            client_address=client_address,
-            project_name=project_name,
-            sample_matrix=sample_matrix,
-            date_sampled=date_sampled.strftime("%m/%d/%Y"),
-            purchase_order=purchase_order,
-            field_id=field_id,
-            analytes_list=st.session_state["analytes"],
+    st.header("Page 2: ANALYTICAL RESULTS")
+    # We'll store multiple "results" lines. Typically you'd break them out by sample, but we'll keep it simple.
+    if "page2_data" not in st.session_state:
+        st.session_state["page2_data"] = {
+            "workorder_name": "J2108213 Priority Pollutants",
+            "results": []
+        }
+
+    st.session_state["page2_data"]["workorder_name"] = st.text_input("Workorder Name", value=st.session_state["page2_data"]["workorder_name"])
+
+    st.subheader("Add Analytical Results")
+    with st.form("page2_results_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            lab_id = st.text_input("Lab ID (Results)", value="")
+        with col2:
+            param = st.text_input("Parameter", value="")
+        with col3:
+            result = st.text_input("Result (e.g., 0.0050 mg/L)", value="ND")
+
+        # Additional columns
+        col4, col5, col6 = st.columns(3)
+        with col4:
+            df_value = st.text_input("DF (Dilution)", value="")
+        with col5:
+            method = st.text_input("Method", value="EPA 200.8")
+        with col6:
+            analysis_date = st.text_input("Analysis Date", value="06/25/2021 17:00")
+
+        submit_p2 = st.form_submit_button("Add Analytical Result")
+        if submit_p2 and lab_id.strip():
+            st.session_state["page2_data"]["results"].append({
+                "lab_id": lab_id,
+                "parameter": param,
+                "result": result,
+                "df": df_value,
+                "method": method,
+                "analysis_date": analysis_date
+            })
+
+    if st.session_state["page2_data"]["results"]:
+        st.write("**Current Analytical Results**")
+        for i, r in enumerate(st.session_state["page2_data"]["results"], 1):
+            st.write(f"{i}) LabID: {r['lab_id']}, Parameter: {r['parameter']}, "
+                     f"Result: {r['result']}, DF: {r['df']}, "
+                     f"Method: {r['method']}, Analysis Date: {r['analysis_date']}")
+    else:
+        st.info("No results yet for Page 2.")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------------
+    # Page 3: QUALITY CONTROL DATA
+    # -------------------------------------------------------------------
+    st.header("Page 3: QUALITY CONTROL DATA")
+    if "page3_data" not in st.session_state:
+        st.session_state["page3_data"] = {
+            "qc_entries": []
+        }
+
+    st.subheader("Add QC Entry")
+    with st.form("page3_qc_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            qc_batch = st.text_input("QC Batch", value="DGMj/1712")
+        with col2:
+            qc_method = st.text_input("QC Batch Method", value="EPA 200.8")
+
+        col3, col4 = st.columns(2)
+        with col3:
+            param = st.text_input("Parameter", value="Beryllium")
+        with col4:
+            blank_result = st.text_input("Blank Result", value="0.0010 mg/L U")
+
+        submit_p3 = st.form_submit_button("Add QC Data")
+        if submit_p3 and qc_batch.strip():
+            st.session_state["page3_data"]["qc_entries"].append({
+                "qc_batch": qc_batch,
+                "qc_method": qc_method,
+                "parameter": param,
+                "blank_result": blank_result
+            })
+
+    if st.session_state["page3_data"]["qc_entries"]:
+        st.write("**Current QC Data Entries**")
+        for i, q in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
+            st.write(f"{i}) QC Batch: {q['qc_batch']}, Method: {q['qc_method']}, "
+                     f"Parameter: {q['parameter']}, Blank Result: {q['blank_result']}")
+    else:
+        st.info("No QC entries yet for Page 3.")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------------
+    # Page 4: QUALITY CONTROL DATA CROSS REFERENCE TABLE
+    # -------------------------------------------------------------------
+    st.header("Page 4: QC DATA CROSS REFERENCE TABLE")
+    if "page4_data" not in st.session_state:
+        st.session_state["page4_data"] = {
+            "cross_refs": []
+        }
+
+    st.subheader("Add Cross Reference Entry")
+    with st.form("page4_qc_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            cross_lab_id = st.text_input("Lab ID", value="")
+        with col2:
+            cross_sample_id = st.text_input("Sample ID", value="")
+
+        col3, col4 = st.columns(2)
+        with col3:
+            prep_method = st.text_input("Prep Method", value="DGMj/1712")
+        with col4:
+            analysis_method = st.text_input("Analysis Method", value="EPA 200.8")
+
+        col5, col6 = st.columns(2)
+        with col5:
+            prep_batch = st.text_input("Prep Batch", value="ICMj/1277")
+        with col6:
+            batch_analysis = st.text_input("Batch Analysis", value="EPA 200.8")
+
+        submit_p4 = st.form_submit_button("Add Cross Ref")
+        if submit_p4 and cross_lab_id.strip():
+            st.session_state["page4_data"]["cross_refs"].append({
+                "lab_id": cross_lab_id,
+                "sample_id": cross_sample_id,
+                "prep_method": prep_method,
+                "analysis_method": analysis_method,
+                "prep_batch": prep_batch,
+                "batch_analysis": batch_analysis
+            })
+
+    if st.session_state["page4_data"]["cross_refs"]:
+        st.write("**Current QC Cross Reference Entries**")
+        for i, c in enumerate(st.session_state["page4_data"]["cross_refs"], 1):
+            st.write(
+                f"{i}) LabID: {c['lab_id']}, SampleID: {c['sample_id']}, "
+                f"PrepMethod: {c['prep_method']}, AnalysisMethod: {c['analysis_method']}, "
+                f"PrepBatch: {c['prep_batch']}, BatchAnalysis: {c['batch_analysis']}"
+            )
+    else:
+        st.info("No cross reference entries yet for Page 4.")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------------
+    # Generate the 4-Page PDF
+    # -------------------------------------------------------------------
+    if st.button("Generate 4-Page COA PDF"):
+        pdf_data = create_multi_page_pdf(
+            page1_data=st.session_state["page1_data"],
+            page2_data=st.session_state["page2_data"],
+            page3_data=st.session_state["page3_data"],
+            page4_data=st.session_state["page4_data"]
         )
         st.download_button(
-            label="Download PDF",
-            data=pdf_bytes,
-            file_name="ApexStyleReport.pdf",
+            "Download PDF",
+            data=pdf_data,
+            file_name="MultiPage_COA.pdf",
             mime="application/pdf"
         )
 
-def create_pdf_report(
-    lab_name,
-    lab_address,
-    lab_phone,
-    lab_fax,
-    report_number,
-    date_reported,
-    project_manager,
-    client_name,
-    client_address,
-    project_name,
-    sample_matrix,
-    date_sampled,
-    purchase_order,
-    field_id,
-    analytes_list
-):
+def create_multi_page_pdf(page1_data, page2_data, page3_data, page4_data):
     pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # -------------- PAGE 1: SAMPLE SUMMARY --------------
     pdf.add_page()
-
-    # ------------------ APEX LAB HEADER ------------------
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 6, lab_name, ln=1, align="R")
+    pdf.cell(0, 8, "CERTIFICATE OF ANALYSIS", ln=True, align="L")
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, lab_address, ln=1, align="R")
-    pdf.cell(0, 5, f"Phone: {lab_phone}   Fax: {lab_fax}", ln=1, align="R")
-    pdf.ln(3)
+    pdf.cell(0, 6, f"Report ID: {page1_data['report_id']}", ln=True)
+    pdf.cell(0, 6, f"Report Date: {page1_data['report_date']}", ln=True)
+    pdf.cell(0, 6, f"Client Name: {page1_data['client_name']}", ln=True)
+    pdf.cell(0, 6, f"Client Address: {page1_data['client_address']}", ln=True)
+    pdf.ln(4)
 
-    # Title line
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 8, "ANALYTICAL REPORT", ln=1, align="C")
-    pdf.ln(2)
-
-    # Horizontal line
-    pdf.set_line_width(0.4)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(3)
-
-    # Subheader
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 6, "ANALYTICAL SAMPLE RESULTS", ln=1, align="C")
-    pdf.ln(3)
-
-    # Info row (similar to top row in screenshot)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(100, 5, f"Client: {client_name}", border=0)
-    pdf.cell(0, 5, f"Report ID: {report_number}", border=0, ln=1)
-    pdf.cell(100, 5, f"Address: {client_address}", border=0)
-    pdf.cell(0, 5, f"Date Reported: {date_reported}", border=0, ln=1)
-    pdf.cell(100, 5, f"Project: {project_name}", border=0)
-    pdf.cell(0, 5, f"Project Manager: {project_manager}", border=0, ln=1)
-    pdf.ln(4)
-
-    # Another horizontal line
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(4)
-
-    # Show some sample details
+    pdf.cell(0, 8, "SAMPLE SUMMARY", ln=True)
     pdf.set_font("Arial", "B", 10)
-    pdf.cell(0, 6, f"Sample Matrix: {sample_matrix}", ln=1)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, f"Date Sampled: {date_sampled}", ln=1)
-    pdf.cell(0, 5, f"Purchase Order: {purchase_order}", ln=1)
-    pdf.cell(0, 5, f"Field ID: {field_id}", ln=1)
-    pdf.ln(4)
-
-    # Table heading
-    pdf.set_font("Arial", "B", 10)
-    pdf.set_fill_color(230, 230, 230)
-    headers = ["Analyte", "Result", "Unit", "Det. Limit", "Dilution", "Method", "Date Analyzed", "Method Ref"]
-    col_widths = [30, 20, 10, 20, 20, 25, 30, 40]
-
-    for h, w in zip(headers, col_widths):
+    pdf.set_fill_color(220, 220, 220)
+    headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
+    widths = [30, 40, 30, 40, 40]
+    for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
 
-    pdf.set_font("Arial", "", 9)
-    # Rows
-    for row in analytes_list:
-        # each row has analyte, result, unit, detection_limit, dilution_factor, method, date_analyzed, method_ref
-        # we can reorder them to match the columns
-        row_data = [
-            row["analyte"],
-            row["result"],
-            row["unit"],
-            row["detection_limit"],
-            row["dilution_factor"],
-            row["method"],
-            row["date_analyzed"],
-            row["method_ref"]
-        ]
-        for val, w in zip(row_data, col_widths):
+    pdf.set_font("Arial", "", 10)
+    for s in page1_data["samples"]:
+        row_vals = [s["lab_id"], s["sample_id"], s["matrix"], s["date_collected"], s["date_received"]]
+        for val, w in zip(row_vals, widths):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
 
-    pdf.ln(5)
-    # Disclaimer / notes
-    pdf.set_font("Arial", "I", 8)
-    pdf.multi_cell(
-        0,
-        4,
-        "ND = Not Detected above detection limit. "
-        "Results are reported on an as-received basis. "
-        "This report relates only to the samples tested. "
-        "It shall not be reproduced, except in full, without written approval from the lab."
-    )
-    pdf.ln(5)
-
-    # Signature
+    # -------------- PAGE 2: ANALYTICAL RESULTS --------------
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "ANALYTICAL RESULTS", ln=True, align="L")
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, "Apex Laboratories", ln=1)
-    pdf.cell(0, 5, project_manager, ln=1)
+    pdf.cell(0, 6, f"Workorder: {page2_data['workorder_name']}", ln=True)
+    pdf.ln(4)
 
-    # Page number at bottom
-    pdf.set_y(-15)
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(220, 220, 220)
+    headers2 = ["Lab ID", "Parameter", "Result", "DF", "Method", "Analysis Date"]
+    widths2 = [30, 40, 30, 15, 40, 35]
+    for h, w in zip(headers2, widths2):
+        pdf.cell(w, 7, h, border=1, align="C", fill=True)
+    pdf.ln(7)
+
+    pdf.set_font("Arial", "", 10)
+    for r in page2_data["results"]:
+        row_vals = [r["lab_id"], r["parameter"], r["result"], r["df"], r["method"], r["analysis_date"]]
+        for val, w in zip(row_vals, widths2):
+            pdf.cell(w, 7, str(val), border=1, align="C")
+        pdf.ln(7)
+
+    # -------------- PAGE 3: QUALITY CONTROL DATA --------------
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "QUALITY CONTROL DATA", ln=True, align="L")
+    pdf.ln(4)
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(220, 220, 220)
+    headers3 = ["QC Batch", "QC Method", "Parameter", "Blank Result"]
+    widths3 = [35, 35, 40, 70]
+    for h, w in zip(headers3, widths3):
+        pdf.cell(w, 7, h, border=1, align="C", fill=True)
+    pdf.ln(7)
+
+    pdf.set_font("Arial", "", 10)
+    for q in page3_data["qc_entries"]:
+        row_vals = [q["qc_batch"], q["qc_method"], q["parameter"], q["blank_result"]]
+        for val, w in zip(row_vals, widths3):
+            pdf.cell(w, 7, str(val), border=1, align="C")
+        pdf.ln(7)
+
+    # -------------- PAGE 4: QC DATA CROSS REFERENCE TABLE --------------
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "QUALITY CONTROL DATA CROSS REFERENCE TABLE", ln=True, align="L")
+    pdf.ln(4)
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(220, 220, 220)
+    headers4 = ["Lab ID", "Sample ID", "Prep Method", "Analysis Method", "Prep Batch", "Batch Analysis"]
+    widths4 = [25, 30, 30, 30, 35, 35]
+    for h, w in zip(headers4, widths4):
+        pdf.cell(w, 7, h, border=1, align="C", fill=True)
+    pdf.ln(7)
+
+    pdf.set_font("Arial", "", 10)
+    for c in page4_data["cross_refs"]:
+        row_vals = [c["lab_id"], c["sample_id"], c["prep_method"], c["analysis_method"], c["prep_batch"], c["batch_analysis"]]
+        for val, w in zip(row_vals, widths4):
+            pdf.cell(w, 7, str(val), border=1, align="C")
+        pdf.ln(7)
+
+    pdf.ln(10)
     pdf.set_font("Arial", "I", 8)
-    pdf.cell(0, 10, f"Page {pdf.page_no()} of 1", 0, 0, "C")
+    pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of the laboratory. "
+                         "Results pertain only to the samples tested. Data conform to the relevant NELAC/NELAP standards where applicable.")
 
+    # Return PDF as bytes
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
