@@ -32,13 +32,13 @@ def generate_id(prefix, length=4):
 def main():
     st.title("NELAC/NELAP Compliant Water Quality COA Generator")
     st.write("""
-    This app generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
+    This application generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
     
-    The report includes four pages:
-    1. SAMPLE SUMMARY  
-    2. ANALYTICAL RESULTS  
-    3. QUALITY CONTROL DATA  
-    4. QC DATA CROSS REFERENCE TABLE
+    The final PDF will have four pages:
+      1. SAMPLE SUMMARY  
+      2. ANALYTICAL RESULTS  
+      3. QUALITY CONTROL DATA  
+      4. QC DATA CROSS REFERENCE TABLE
     """)
 
     # ----------------------------
@@ -74,7 +74,7 @@ def main():
     
     st.subheader("Add Sample Summary Row")
     with st.form("page1_samples_form", clear_on_submit=True):
-        # If Lab ID is blank, auto generate one.
+        # If Lab ID is left blank, auto-generate one.
         sample_lab_id = st.text_input("Lab ID (Leave blank for auto-generation)", value="")
         sample_id = st.text_input("Sample ID", value="")
         matrix = st.text_input("Matrix", value="Water")
@@ -97,7 +97,6 @@ def main():
                      f"Collected: {s['date_collected']}, Received: {s['date_received']}")
     else:
         st.info("No samples added for Sample Summary.")
-
     st.markdown("---")
 
     # ====================
@@ -107,19 +106,21 @@ def main():
     if "page2_data" not in st.session_state:
         st.session_state["page2_data"] = {
             "workorder_name": "J2108213 Priority Pollutants",
+            "global_analysis_date": "06/25/2021 17:00",
             "results": []
         }
     st.session_state["page2_data"]["workorder_name"] = st.text_input("Workorder Name", value=st.session_state["page2_data"]["workorder_name"])
+    st.session_state["page2_data"]["global_analysis_date"] = st.text_input("Global Analysis Date", value=st.session_state["page2_data"]["global_analysis_date"])
 
     st.subheader("Add Analytical Result")
     with st.form("page2_results_form", clear_on_submit=True):
-        # Choose Lab ID from samples on Page 1
+        # Let user choose Lab ID from samples entered on Page 1.
         lab_ids = [s["lab_id"] for s in st.session_state["page1_data"]["samples"]]
         if lab_ids:
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-        # Dependent dropdown for parameter and method:
+        # Dependent dropdown for analyte and its method.
         selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
         selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter])
         col1, col2, col3, col4 = st.columns(4)
@@ -132,7 +133,6 @@ def main():
         with col4:
             result_value = st.text_input("Result", value="ND")
         unit_value = st.selectbox("Unit", options=["mg/L", "µg/L", "µS/cm", "none"])
-        analysis_date = st.text_input("Analysis Date", value="06/25/2021 17:00")
         if st.form_submit_button("Add Analytical Result"):
             if result_lab_id:
                 st.session_state["page2_data"]["results"].append({
@@ -143,17 +143,15 @@ def main():
                     "mdl": mdl_value,
                     "pql": pql_value,
                     "result": result_value,
-                    "unit": unit_value,
-                    "analysis_date": analysis_date
+                    "unit": unit_value
                 })
     if st.session_state["page2_data"]["results"]:
         st.write("**Current Analytical Results:**")
         for i, r in enumerate(st.session_state["page2_data"]["results"], 1):
-            st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Analysis: {r['analysis']}, DF: {r['df']}, "
-                     f"MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}, Date: {r['analysis_date']}")
+            st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Analysis: {r['analysis']}, "
+                     f"DF: {r['df']}, MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}")
     else:
         st.info("No analytical results added yet.")
-
     st.markdown("---")
 
     # ====================
@@ -188,7 +186,6 @@ def main():
             st.write(f"{i}. QC Batch: {q['qc_batch']}, Method: {q['qc_method']}, Parameter: {q['parameter']}, Blank: {q['blank_result']}")
     else:
         st.info("No QC data entries added yet.")
-
     st.markdown("---")
 
     # ====================
@@ -231,7 +228,6 @@ def main():
                      f"Analysis Method: {c['analysis_method']}, Prep Batch: {c['prep_batch']}, Batch Analysis: {c['batch_analysis']}")
     else:
         st.info("No cross reference entries added yet.")
-
     st.markdown("---")
 
     # ====================
@@ -300,21 +296,25 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
 
     # ---- PAGE 2: ANALYTICAL RESULTS ----
     pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "ANALYTICAL RESULTS", ln=True, align="L")
+    # Create a "card" with global information
+    pdf.set_fill_color(240, 240, 240)
+    card_y = pdf.get_y()
+    pdf.rect(10, card_y, 190, 15, "FD")
+    pdf.set_xy(12, card_y + 4)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 6, f"Workorder: {page2_data['workorder_name']}", ln=True)
-    pdf.ln(3)
+    pdf.cell(0, 5, f"Workorder: {page2_data['workorder_name']}    Analysis Date: {page2_data['global_analysis_date']}", ln=True)
+    pdf.ln(8)
+    
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
-    headers2 = ["Lab ID", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit", "Analysis Date"]
-    widths2 = [25, 30, 30, 15, 15, 15, 25, 15, 30]
+    headers2 = ["Lab ID", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
+    widths2 = [25, 30, 30, 15, 15, 15, 25, 15]
     for h, w in zip(headers2, widths2):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
     pdf.set_font("Arial", "", 10)
     for r in page2_data["results"]:
-        row = [r["lab_id"], r["parameter"], r["analysis"], r["df"], r["mdl"], r["pql"], r["result"], r["unit"], r["analysis_date"]]
+        row = [r["lab_id"], r["parameter"], r["analysis"], r["df"], r["mdl"], r["pql"], r["result"], r["unit"]]
         for val, w in zip(row, widths2):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
