@@ -297,18 +297,18 @@ def create_multi_page_pdf(lab_name, lab_address, lab_email, lab_phone, page1_dat
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
 
-    # ---- PAGE 2: ANALYTICAL RESULTS ----
+    # ---- PAGE 2: ANALYTICAL RESULTS ---- 
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(effective_width, 8, "ANALYTICAL RESULTS", ln=True, align="L")
+    pdf.ln(3)
+    
     pdf.set_font("Arial", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
     pdf.ln(4)
-    
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(effective_width, 8, "ANALYTICAL RESULTS", ln=True, align="L")
-    pdf.ln(3)
 
     # "Card" with 2 columns for Workorder & Global Analysis Date
     pdf.set_fill_color(240, 240, 240)  # light gray
