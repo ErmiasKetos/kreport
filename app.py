@@ -2,9 +2,10 @@ import streamlit as st
 from fpdf import FPDF
 import datetime
 import io
+import random
+import string
 
 # Comprehensive analyte-to-method mapping for water quality tests.
-# (Update this dictionary with your official analytes and corresponding methods as needed.)
 analyte_to_methods = {
     "Aluminum": ["EPA 200.7", "Method A"],
     "Antimony": ["EPA 200.8", "Method X"],
@@ -21,15 +22,18 @@ analyte_to_methods = {
     "Silver": ["EPA 200.7", "Method J"],
     "Thallium": ["EPA 200.8", "Method K"],
     "Zinc": ["EPA 200.7", "Method L"],
-    # Additional analytes can be added here...
+    # Extend as needed...
 }
+
+# Helper function to generate an ID with a given prefix.
+def generate_id(prefix, length=4):
+    return prefix + ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 def main():
     st.title("NELAC/NELAP Compliant Water Quality COA Generator")
     st.write("""
-        This application generates a multi‐page Certificate of Analysis (COA) for water quality tests.
-        Users can select an analyte from a dropdown and then choose from its approved methods.
-        The final report is split into four pages:
+        This application generates a multi‐page Certificate of Analysis (COA) report compliant with NELAC/NELAP/ELAP standards.
+        The final PDF will have four pages:
           1. SAMPLE SUMMARY  
           2. ANALYTICAL RESULTS  
           3. QUALITY CONTROL DATA  
@@ -44,7 +48,6 @@ def main():
     lab_address = st.text_input("Lab Address", value="520 Mercury Dr, Sunnyvale, CA 94085")
     lab_email = st.text_input("Lab Email", value="info@ketos.co")
     lab_phone = st.text_input("Lab Phone", value="(xxx) xxx-xxxx")
-
     st.markdown("---")
 
     # ====================
@@ -57,6 +60,7 @@ def main():
             "report_date": datetime.date.today().strftime("%m/%d/%Y"),
             "client_name": "City of Atlantic Beach",
             "client_address": "902 Assisi Lane, Atlantic Beach, FL 32233",
+            "project_id": generate_id("PJ-"),
             "samples": []
         }
     st.subheader("Report & Client Info")
@@ -64,28 +68,28 @@ def main():
     st.session_state["page1_data"]["report_date"] = st.text_input("Report Date", value=st.session_state["page1_data"]["report_date"])
     st.session_state["page1_data"]["client_name"] = st.text_input("Client Name", value=st.session_state["page1_data"]["client_name"])
     st.session_state["page1_data"]["client_address"] = st.text_input("Client Address", value=st.session_state["page1_data"]["client_address"])
+    # Show Project ID (auto-generated, can be overridden)
+    project_id = st.text_input("Project ID (Auto-generated)", value=st.session_state["page1_data"]["project_id"])
 
     st.subheader("Add Sample Summary Row")
     with st.form("page1_samples_form", clear_on_submit=True):
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            sample_lab_id = st.text_input("Lab ID", value="")
-        with col2:
-            sample_id = st.text_input("Sample ID", value="")
-        with col3:
-            matrix = st.text_input("Matrix", value="Water")
-        with col4:
-            date_collected = st.text_input("Date Collected", value="06/17/2021 09:40")
+        # If Lab ID is left blank, auto generate one.
+        sample_lab_id = st.text_input("Lab ID (Leave blank for auto-generation)", value="")
+        sample_id = st.text_input("Sample ID", value="")
+        matrix = st.text_input("Matrix", value="Water")
+        date_collected = st.text_input("Date Collected", value="06/17/2021 09:40")
         date_received = st.text_input("Date Received", value="06/18/2021 12:20")
         if st.form_submit_button("Add Sample"):
-            if sample_lab_id.strip():
-                st.session_state["page1_data"]["samples"].append({
-                    "lab_id": sample_lab_id,
-                    "sample_id": sample_id,
-                    "matrix": matrix,
-                    "date_collected": date_collected,
-                    "date_received": date_received
-                })
+            # Auto-generate Lab ID if not provided.
+            if not sample_lab_id.strip():
+                sample_lab_id = generate_id("LS-")
+            st.session_state["page1_data"]["samples"].append({
+                "lab_id": sample_lab_id,
+                "sample_id": sample_id,
+                "matrix": matrix,
+                "date_collected": date_collected,
+                "date_received": date_received
+            })
     if st.session_state["page1_data"]["samples"]:
         st.write("**Current Samples:**")
         for i, s in enumerate(st.session_state["page1_data"]["samples"], 1):
@@ -112,23 +116,24 @@ def main():
         with col1:
             result_lab_id = st.text_input("Lab ID", value="")
         with col2:
-            parameter = st.text_input("Parameter", value="")
-        col3, col4, col5 = st.columns(3)
+            # Dependent dropdown: select parameter first.
+            selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
+        # Now the Method dropdown updates based on selected parameter.
+        selected_method = st.selectbox("Method", options=analyte_to_methods[selected_parameter])
+        col3, col4 = st.columns(2)
         with col3:
             result_value = st.text_input("Result", value="ND")
         with col4:
             dilution_factor = st.text_input("Dilution Factor (DF)", value="")
-        with col5:
-            method_used = st.text_input("Method", value="EPA 200.8")
         analysis_date = st.text_input("Analysis Date", value="06/25/2021 17:00")
         if st.form_submit_button("Add Analytical Result"):
             if result_lab_id.strip():
                 st.session_state["page2_data"]["results"].append({
                     "lab_id": result_lab_id,
-                    "parameter": parameter,
+                    "parameter": selected_parameter,
                     "result": result_value,
                     "df": dilution_factor,
-                    "method": method_used,
+                    "method": selected_method,
                     "analysis_date": analysis_date
                 })
     if st.session_state["page2_data"]["results"]:
@@ -137,7 +142,6 @@ def main():
             st.write(f"{i}. Lab ID: {r['lab_id']}, Parameter: {r['parameter']}, Result: {r['result']}, DF: {r['df']}, Method: {r['method']}, Date: {r['analysis_date']}")
     else:
         st.info("No analytical results added yet.")
-
     st.markdown("---")
 
     # ====================
@@ -172,7 +176,6 @@ def main():
             st.write(f"{i}. QC Batch: {q['qc_batch']}, Method: {q['qc_method']}, Parameter: {q['parameter']}, Blank: {q['blank_result']}")
     else:
         st.info("No QC data entries added yet.")
-
     st.markdown("---")
 
     # ====================
@@ -215,7 +218,6 @@ def main():
                      f"Analysis Method: {c['analysis_method']}, Prep Batch: {c['prep_batch']}, Batch Analysis: {c['batch_analysis']}")
     else:
         st.info("No cross reference entries added yet.")
-
     st.markdown("---")
 
     # ====================
