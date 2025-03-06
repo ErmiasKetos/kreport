@@ -8,7 +8,7 @@ import string
 class PDF(FPDF):
     def footer(self):
         # Position the footer 15 mm from the bottom
-        self.set_y(-25)
+        self.set_y(-15)
         # Set the font: Arial italic 8
         self.set_font('Arial', 'I', 8)
         # Add a cell with the page number (e.g., "Page 1 of {nb}")
@@ -53,8 +53,8 @@ def main():
     #####################################
     lab_name = "KELP Laboratory"
     lab_address = "520 Mercury Dr, Sunnyvale, CA 94085"
-    lab_email = "info@ketos.co"
-    lab_phone = "(xxx) xxx-xxxx"
+    lab_email = "kelp@ketoslab.com"
+    lab_phone = "(408) 461-8860"
     
     auto_work_order = generate_id("WO-")
     auto_coc_number = generate_id("COC-")
