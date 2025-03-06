@@ -411,16 +411,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # 1. PAGE 1: SAMPLE SUMMARY
     # ---------------------------
     pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(4)
     
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
+    pdf.cell(0, 10, "SAMPLE SUMMARY", ln=True, align="C")
     pdf.ln(2)
     
     pdf.set_font("Arial", "", 10)
@@ -429,10 +422,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(180, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
     pdf.cell(180, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
     pdf.ln(4)
-    
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(180, 8, "SAMPLE SUMMARY", ln=True, align="L")
-    pdf.ln(2)
     
     pdf.set_font("Arial", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
@@ -452,17 +441,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # 2. PAGE 2: ANALYTICAL RESULTS
     # ---------------------------
     pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(180, 8, "ANALYTICAL RESULTS", ln=True, align="L")
-    pdf.ln(3)
-
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(4)
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "ANALYTICAL RESULTS", ln=True, align="C")
+    pdf.ln(2)
     
     pdf.set_font("Arial", "", 10)
     pdf.cell(180, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
@@ -490,17 +471,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # 3. PAGE 3: QUALITY CONTROL DATA
     # ---------------------------
     pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(180, 8, "QUALITY CONTROL DATA", ln=True, align="L")
-    pdf.ln(3)
-
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(4)
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "QUALITY CONTROL", ln=True, align="C")
+    pdf.ln(2)
     
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
@@ -521,17 +494,10 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
     # ---------------------------
     pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(180, 8, "QC DATA CROSS REFERENCE TABLE", ln=True, align="L")
-    pdf.ln(3)
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "QC DATA CROSS REFERENCE TABLE", ln=True, align="C")
+    pdf.ln(2)
     
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(4)
     
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
@@ -551,7 +517,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.ln(8)
     pdf.set_font("Arial", "I", 8)
     pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
-                         "Results pertain only to the samples tested and conform to NELAC/NELAP/ELAP standards.")
+                         "Test results reported relate only to the samples as received by the laboratory.")
     
     pdf.set_y(-15)
     pdf.set_font("Arial", "I", 8)
