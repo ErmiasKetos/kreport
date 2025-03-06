@@ -434,6 +434,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.ln(4)
     
     pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(230, 230, 230)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
     widths = [30, 40, 30, 40, 40]  # total=180
     for h, w in zip(headers, widths):
