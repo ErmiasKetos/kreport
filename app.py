@@ -317,6 +317,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(4)
+                          
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
     
     left_width = effective_width / 2
     right_width = effective_width / 2
@@ -391,11 +399,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     except:
         pdf.cell(0, 5, "[Signature image not found]", ln=True)
 
-    # Name & Title on separate lines, then Date
+    # Name & Title on separate lines, then auto date
     pdf.set_font("Arial", "", 10)
     pdf.cell(0, 5, cover_data["signatory_name"], ln=True, align="L")
     pdf.cell(0, 5, cover_data["signatory_title"], ln=True, align="L")
-    pdf.cell(0, 5, "Date: ______________________", ln=True, align="L")
+    # Use today's date in "Date" line:
+    signature_date = datetime.date.today().strftime("%m/%d/%Y")
+    pdf.cell(0, 5, f"Date: {signature_date}", ln=True, align="L")
 
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
@@ -445,6 +455,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 12)
     pdf.cell(180, 8, "ANALYTICAL RESULTS", ln=True, align="L")
     pdf.ln(3)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
     
     pdf.set_font("Arial", "", 10)
     pdf.cell(180, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
@@ -475,6 +493,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 12)
     pdf.cell(180, 8, "QUALITY CONTROL DATA", ln=True, align="L")
     pdf.ln(3)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
     
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
@@ -498,6 +524,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 12)
     pdf.cell(180, 8, "QC DATA CROSS REFERENCE TABLE", ln=True, align="L")
     pdf.ln(3)
+    
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
     
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
