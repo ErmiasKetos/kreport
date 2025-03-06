@@ -38,7 +38,7 @@ def generate_id(prefix, length=4):
 
 def main():
     st.title("Water Quality COA (Auto-Generated Fields)")
-    
+
     #####################################
     # Global Auto-Generated Constants (Fixed Values)
     #####################################
@@ -56,9 +56,8 @@ def main():
     #####################################
     if "cover_data" not in st.session_state:
         st.session_state["cover_data"] = {
-            "lab_name": lab_name,
+            "lab_name": lab_name,  # fixed
             "work_order": auto_work_order,
-            # Removed "Page: 1 of 1" field per requirements.
             "project_name": "Alberta Environment and Parks",
             "client_name": "City of Edmonton",
             "address_line": "9450 - 17 Ave NW\nEdmonton AB Canada T6N 1M9",
@@ -70,7 +69,7 @@ def main():
             "po_number": "ABS 271",
             "report_title": "CERTIFICATE OF ANALYSIS",
             "comments": "None",
-            "signatories": []  # to be filled below
+            "signatories": []  # Only Lab Manager will be kept
         }
     st.header("Cover Page Fields (Optional Edits)")
     st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
@@ -79,17 +78,12 @@ def main():
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
     
-    # New fields for signatories: Lab Analyst and Lab Manager.
-    st.subheader("Enter Signatories")
-    lab_analyst_name = st.text_input("Lab Analyst Name", value="Lab Analyst")
-    lab_analyst_title = st.text_input("Lab Analyst Title", value="Lab Analyst")
-    lab_analyst_location = st.text_input("Lab Analyst Location", value="Operations")
+    st.subheader("Enter Lab Manager Signatory")
     lab_manager_name = st.text_input("Lab Manager Name", value="Lab Manager")
     lab_manager_title = st.text_input("Lab Manager Title", value="Lab Manager")
-    lab_manager_location = st.text_input("Lab Manager Location", value="Operations")
+    lab_manager_location = st.text_input("Lab Manager Location", value="Operations, " + lab_address)
     
     st.session_state["cover_data"]["signatories"] = [
-        {"name": lab_analyst_name, "title": lab_analyst_title, "location": lab_analyst_location},
         {"name": lab_manager_name, "title": lab_manager_title, "location": lab_manager_location}
     ]
     
@@ -116,10 +110,9 @@ def main():
     
     st.subheader("Add Water Sample")
     with st.form("page1_samples_form", clear_on_submit=True):
-        sample_lab_id = st.text_input("Lab ID (Leave blank for auto-generation)", value="")
+        sample_lab_id = st.text_input("Lab ID (Leave blank for auto-gen)", value="")
         sample_id = st.text_input("Sample ID", value="")
         matrix = st.text_input("Matrix", value="Water")
-        # Now users enter the sample dates:
         sample_date_collected = st.text_input("Date Collected", value=default_date)
         sample_date_received = st.text_input("Date Received", value=default_date)
         if st.form_submit_button("Add Water Sample"):
@@ -168,8 +161,10 @@ def main():
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
         else:
             result_lab_id = st.text_input("Lab ID", value="")
+    
         selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
         selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter])
+    
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
@@ -328,41 +323,43 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(4)
     
-    # Global Information Table (2 columns)
+    # Global Information as a table (without titles "GLOBAL INFORMATION" or "CLIENT INFORMATION")
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(effective_width, 8, "GLOBAL INFORMATION", ln=True, align="C")
-    pdf.ln(2)
-    
+    # Left and Right columns are each 90 mm wide
     left_width = effective_width / 2
     right_width = effective_width / 2
+
+    # Work Order
     pdf.set_font("Arial", "B", 10)
-    pdf.set_fill_color(230, 230, 230)
-    
-    # Left Column
     pdf.cell(left_width, 6, "Work Order:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
     pdf.cell(right_width, 6, cover_data["work_order"], border=1, ln=True)
     
+    # Project
     pdf.set_font("Arial", "B", 10)
     pdf.cell(left_width, 6, "Project:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
     pdf.cell(right_width, 6, cover_data["project_name"], border=1, ln=True)
     
+    # Analysis Type
     pdf.set_font("Arial", "B", 10)
     pdf.cell(left_width, 6, "Analysis Type:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
     pdf.cell(right_width, 6, cover_data["analysis_type"], border=1, ln=True)
     
+    # COC #
     pdf.set_font("Arial", "B", 10)
     pdf.cell(left_width, 6, "COC #:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
     pdf.cell(right_width, 6, cover_data["coc_number"], border=1, ln=True)
     
+    # PO #
     pdf.set_font("Arial", "B", 10)
     pdf.cell(left_width, 6, "PO #:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
     pdf.cell(right_width, 6, cover_data["po_number"], border=1, ln=True)
     
+    # Dates
     pdf.set_font("Arial", "B", 10)
     pdf.cell(left_width, 6, "Date Samples Received:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
@@ -375,11 +372,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     
     pdf.ln(4)
     
-    # Client Information Table
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(effective_width, 8, "CLIENT INFORMATION", ln=True, align="C")
-    pdf.ln(2)
-    
+    # Client Information (without heading)
     pdf.set_font("Arial", "B", 10)
     pdf.cell(40, 6, "Client Name:", border=1, fill=True)
     pdf.set_font("Arial", "", 10)
@@ -405,14 +398,19 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.multi_cell(effective_width, 5, cover_data["comments"], border=1)
     pdf.ln(4)
     
-    # Signatories Table
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(effective_width, 6, "Signatories", ln=True, align="L")
-    pdf.set_font("Arial", "", 9)
-    for signatory in cover_data["signatories"]:
-        sign_line = f"{signatory['name']}, {signatory['title']} ({signatory['location']})"
-        pdf.cell(effective_width, 5, sign_line, ln=True, align="L")
-    pdf.ln(6)
+    # Signature Field with Text Above
+    pdf.set_font("Arial", "", 10)
+    signature_text = ("All data for associated QC met EPA or laboratory specification(s) except where noted in the case narrative. "
+                      "This report supersedes any previous report(s) with this reference. Results apply to the sample(s) as submitted. "
+                      "This document shall not be reproduced, except in full.")
+    pdf.multi_cell(effective_width, 5, signature_text, border=0)
+    pdf.ln(2)
+    
+    # Add Lab Manager Signature Image (adjust x, y, width as needed)
+    # For example, place the signature at x=15, current y, width=40 mm.
+    current_y = pdf.get_y()
+    pdf.image("lab_manager_signature.png", x=15, y=current_y, w=40)
+    pdf.ln(20)
     
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
