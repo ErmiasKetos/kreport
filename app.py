@@ -67,10 +67,10 @@ def main():
         st.session_state["cover_data"] = {
             "lab_name": lab_name,  # fixed
             "work_order": auto_work_order,
-            "project_name": "Alberta Environment and Parks",
+            "project_name": "",
             "client_name": "",
-            "address_line": "9450 - 17 Ave NW\nEdmonton AB Canada T6N 1M9",
-            "phone": "111-999-8889",
+            "address_line": "",
+            "phone": "",
             "date_samples_received": default_date,
             "date_reported": default_date,
             "analysis_type": "Environmental",
@@ -87,6 +87,16 @@ def main():
     st.session_state["cover_data"]["address_line"] = st.text_area("Address", value=st.session_state["cover_data"]["address_line"])
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
+
+    sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
+    if "work_order" not in st.session_state["cover_data"] or st.session_state["cover_data"]["work_order"] == auto_work_order:
+        try:
+            dt = datetime.datetime.strptime(st.session_state["cover_data"]["date_samples_received"], "%m/%d/%Y")
+            date_str = dt.strftime("%Y%m%d")
+        except:
+            date_str = datetime.date.today().strftime("%Y%m%d")
+        st.session_state["cover_data"]["work_order"] = f"{sample_type}-{date_str}-0001"
+
     
     st.subheader("Lab Manager Signatory")
     st.session_state["cover_data"]["signatory_name"] = st.text_input("Lab Manager Name", value=st.session_state["cover_data"]["signatory_name"])
