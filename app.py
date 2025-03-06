@@ -185,7 +185,7 @@ def main():
     #####################################
     if "page2_data" not in st.session_state:
         st.session_state["page2_data"] = {
-            "workorder_name": auto_work_order,
+            "workorder_name": st.session_state["cover_data"]["work_order"],
             "global_analysis_date": default_date + " 10:00",
             "results": [],
             "report_id": st.session_state["page1_data"]["report_id"],
