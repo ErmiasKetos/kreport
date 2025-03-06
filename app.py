@@ -8,7 +8,7 @@ import string
 class PDF(FPDF):
     def footer(self):
         # Position the footer 15 mm from the bottom
-        self.set_y(-15)
+        self.set_y(-25)
         # Set the font: Arial italic 8
         self.set_font('Arial', 'I', 8)
         # Add a cell with the page number (e.g., "Page 1 of {nb}")
