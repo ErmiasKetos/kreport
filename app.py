@@ -391,13 +391,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     try:
         pdf.image("lab_managersign.jpg", x=15, y=current_y, w=30)  # or .png if you have .png
         # Move the cursor below the image
-        pdf.set_y(current_y + 25)
+        pdf.set_y(current_y + 5)
     except:
         pdf.cell(0, 5, "[Signature image not found]", ln=True)
 
     # Name & Title under the signature
     pdf.ln(5)
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("Arial", "", 11)
     pdf.cell(0, 5, f"{cover_data['signatory_name']}", ln=True, align="L")
     pdf.cell(0, 5, f"{cover_data['signatory_title']}",ln=True, align="L")
 
