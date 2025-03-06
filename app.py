@@ -198,17 +198,23 @@ def main():
     st.text(f"Report Date: {st.session_state['page2_data']['report_date']}")
     st.text(f"Global Analysis Date: {st.session_state['page2_data']['global_analysis_date']}")
     
+    # Place the dependent dropdowns outside the form for dynamic updates.
+    selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
+    selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
+    
     st.subheader("Add Analytical Result (Page 2)")
     with st.form("page2_results_form", clear_on_submit=True):
+        # You can optionally display the chosen analyte and method for clarity.
+        st.write(f"Selected Analyte: {selected_parameter}")
+        st.write(f"Selected Method: {selected_method}")
+        
+        # Assuming you have lab id selection logic from Page 1:
         lab_ids = [s["lab_id"] for s in st.session_state["page1_data"]["samples"]]
         if lab_ids:
-            result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
+            result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-    
-        selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
-        selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
-
+        
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
@@ -218,8 +224,8 @@ def main():
             pql_value = st.text_input("PQL", value="")
         with col4:
             result_value = st.text_input("Result", value="ND")
-        unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"])
-    
+        unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"], key="unit")
+        
         if st.form_submit_button("Add Analytical Result"):
             if result_lab_id:
                 st.session_state["page2_data"]["results"].append({
@@ -232,7 +238,7 @@ def main():
                     "result": result_value,
                     "unit": unit_value
                 })
-    
+                
     if st.session_state["page2_data"]["results"]:
         st.write("**Current Analytical Results (Page 2):**")
         for i, r in enumerate(st.session_state["page2_data"]["results"], 1):
@@ -240,6 +246,7 @@ def main():
                      f"DF: {r['df']}, MDL: {r['mdl']}, PQL: {r['pql']}, Result: {r['result']} {r['unit']}")
     else:
         st.info("No analytical results added yet.")
+
     
     st.markdown("---")
     
