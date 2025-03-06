@@ -193,7 +193,7 @@ def main():
         }
     st.header("Page 2: ANALYTICAL RESULTS")
     st.subheader("Global Fields (Auto-Populated from Page 1)")
-    st.text(f"Work Order: {st.session_state['page2_data']['work_order']}")
+    st.text(f"Work Order: {st.session_state['page2_data']['workorder_name']}")
     st.text(f"Report ID: {st.session_state['page2_data']['report_id']}")
     st.text(f"Report Date: {st.session_state['page2_data']['report_date']}")
     st.text(f"Global Analysis Date: {st.session_state['page2_data']['global_analysis_date']}")
