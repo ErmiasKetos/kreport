@@ -313,7 +313,7 @@ def main():
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       cover_data,
                       page1_data, page2_data, page3_data, page4_data):
-    pdf = FPDF("P", "mm", "A4")
+    pdf = PDF("P", "mm", "A4")
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_text_color(0, 0, 0)   # ensure black text
