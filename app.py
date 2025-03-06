@@ -69,7 +69,8 @@ def main():
             "po_number": "ABS 271",
             "report_title": "CERTIFICATE OF ANALYSIS",
             "comments": "None",
-            "signatories": []  # Only Lab Manager will be kept
+            "signatory_name": "John Smith",
+            "signatory_title": "Lab Manager",
         }
     st.header("Cover Page Fields (Optional Edits)")
     st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
@@ -78,15 +79,10 @@ def main():
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
     
-    st.subheader("Enter Lab Manager Signatory")
-    lab_manager_name = st.text_input("Lab Manager Name", value="Lab Manager")
-    lab_manager_title = st.text_input("Lab Manager Title", value="Lab Manager")
-    lab_manager_location = st.text_input("Lab Manager Location", value="Operations, " + lab_address)
-    
-    st.session_state["cover_data"]["signatories"] = [
-        {"name": lab_manager_name, "title": lab_manager_title, "location": lab_manager_location}
-    ]
-    
+    st.subheader("Lab Manager Signatory")
+    st.session_state["cover_data"]["signatory_name"] = st.text_input("Lab Manager Name", value=st.session_state["cover_data"]["signatory_name"])
+    st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
+
     st.markdown("---")
     
     #####################################
@@ -161,10 +157,8 @@ def main():
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-    
         selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
         selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter])
-    
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
@@ -312,8 +306,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       page1_data, page2_data, page3_data, page4_data):
     pdf = FPDF("P", "mm", "A4")
     pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_text_color(0, 0, 0)   # ensure black text
     effective_width = 180
-    total_pages = 5  # Cover + 4 pages
+    total_pages = 5  # cover + 4 pages
 
     # ---------------------------
     # 0. COVER PAGE
@@ -323,95 +318,88 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(4)
     
-    # Global Information as a table (without titles "GLOBAL INFORMATION" or "CLIENT INFORMATION")
-    pdf.set_font("Arial", "B", 12)
-    # Left and Right columns are each 90 mm wide
+    # We use no headings, just 2-col table for global info
+    # We'll color the label cells with a light gray, data cells with white fill
     left_width = effective_width / 2
     right_width = effective_width / 2
 
-    # Work Order
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "Work Order:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["work_order"], border=1, ln=True)
-    
-    # Project
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "Project:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["project_name"], border=1, ln=True)
-    
-    # Analysis Type
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "Analysis Type:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["analysis_type"], border=1, ln=True)
-    
-    # COC #
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "COC #:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["coc_number"], border=1, ln=True)
-    
-    # PO #
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "PO #:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["po_number"], border=1, ln=True)
-    
-    # Dates
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "Date Samples Received:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["date_samples_received"], border=1, ln=True)
-    
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(left_width, 6, "Date Reported:", border=1, fill=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(right_width, 6, cover_data["date_reported"], border=1, ln=True)
-    
+    # Function to print a label->data row
+    def table_row(label_text, data_text):
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_fill_color(240, 240, 240)  # label cell color
+        pdf.cell(left_width, 6, label_text, border=1, ln=0, align="L", fill=True)
+        pdf.set_font("Arial", "", 10)
+        pdf.set_fill_color(255, 255, 255)  # data cell color
+        pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L", fill=True)
+
+    # Table: Work Order, Project, Analysis Type, COC #, PO #, Date Samples Received, Date Reported
+    table_row("Work Order:", cover_data["work_order"])
+    table_row("Project:", cover_data["project_name"])
+    table_row("Analysis Type:", cover_data["analysis_type"])
+    table_row("COC #:", cover_data["coc_number"])
+    table_row("PO #:", cover_data["po_number"])
+    table_row("Date Samples Received:", cover_data["date_samples_received"])
+    table_row("Date Reported:", cover_data["date_reported"])
     pdf.ln(4)
-    
-    # Client Information (without heading)
+
+    # Another table for client info
     pdf.set_font("Arial", "B", 10)
-    pdf.cell(40, 6, "Client Name:", border=1, fill=True)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(40, 6, "Client Name:", border=1, align="L", fill=True)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(effective_width - 40, 6, cover_data["client_name"], border=1, ln=True)
-    
+    pdf.set_fill_color(255, 255, 255)
+    pdf.cell(effective_width - 40, 6, cover_data["client_name"], border=1, ln=True, align="L", fill=True)
+
     pdf.set_font("Arial", "B", 10)
-    pdf.cell(40, 6, "Address:", border=1, fill=True)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(40, 6, "Address:", border=1, align="L", fill=True)
     pdf.set_font("Arial", "", 10)
-    pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1)
-    pdf.ln(2)
-    
+    pdf.set_fill_color(255, 255, 255)
+    # multi_cell for address
+    start_y = pdf.get_y()
+    pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1, align="L")
+    end_y = pdf.get_y()
+    pdf.ln(2 if (end_y - start_y) < 12 else 0)
+
     pdf.set_font("Arial", "B", 10)
-    pdf.cell(40, 6, "Phone:", border=1, fill=True)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(40, 6, "Phone:", border=1, align="L", fill=True)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(effective_width - 40, 6, cover_data["phone"], border=1, ln=True)
-    
+    pdf.set_fill_color(255, 255, 255)
+    pdf.cell(effective_width - 40, 6, cover_data["phone"], border=1, ln=True, align="L", fill=True)
     pdf.ln(4)
-    
-    # Comments Section
+
+    # Comments
     pdf.set_font("Arial", "B", 10)
     pdf.cell(effective_width, 6, "Comments / Case Narrative", ln=True, align="L")
     pdf.set_font("Arial", "", 10)
     pdf.multi_cell(effective_width, 5, cover_data["comments"], border=1)
     pdf.ln(4)
-    
-    # Signature Field with Text Above
+
+    # Signature text above the signature
     pdf.set_font("Arial", "", 10)
-    signature_text = ("All data for associated QC met EPA or laboratory specification(s) except where noted in the case narrative. "
-                      "This report supersedes any previous report(s) with this reference. Results apply to the sample(s) as submitted. "
-                      "This document shall not be reproduced, except in full.")
+    signature_text = (
+        "All data for associated QC met EPA or laboratory specification(s) except where noted in the case narrative. "
+        "This report supersedes any previous report(s) with this reference. Results apply to the sample(s) as submitted. "
+        "This document shall not be reproduced, except in full."
+    )
     pdf.multi_cell(effective_width, 5, signature_text, border=0)
     pdf.ln(2)
-    
-    # Add Lab Manager Signature Image (adjust x, y, width as needed)
-    # For example, place the signature at x=15, current y, width=40 mm.
+
+    # Insert the signature image (adjust name, x/y, width as needed)
     current_y = pdf.get_y()
-    pdf.image("lab_managersign.jpg", x=15, y=current_y, w=40)
-    pdf.ln(20)
-    
+    try:
+        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=40)  # or .png if you have .png
+        # Move the cursor below the image
+        pdf.set_y(current_y + 25)
+    except:
+        pdf.cell(0, 5, "[Signature image not found]", ln=True)
+
+    # Name & Title under the signature
+    pdf.ln(5)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, f"{cover_data['signatory_name']}, {cover_data['signatory_title']}", ln=True, align="L")
+
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
     # ---------------------------
@@ -429,19 +417,19 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.ln(2)
     
     pdf.set_font("Arial", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
+    pdf.cell(180, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
+    pdf.cell(180, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
+    pdf.cell(180, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
+    pdf.cell(180, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
     pdf.ln(4)
     
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(effective_width, 8, "SAMPLE SUMMARY", ln=True, align="L")
+    pdf.cell(180, 8, "SAMPLE SUMMARY", ln=True, align="L")
     pdf.ln(2)
     
     pdf.set_font("Arial", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]  # total = 180
+    widths = [30, 40, 30, 40, 40]  # total=180
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -471,7 +459,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers2 = ["Lab ID", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-    widths2 = [25, 35, 30, 15, 15, 15, 30, 15]  # total = 180
+    widths2 = [25, 35, 30, 15, 15, 15, 30, 15]  # sum=180
     for h, w in zip(headers2, widths2):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -494,7 +482,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers3 = ["QC Batch", "QC Method", "Parameter", "Blank Result"]
-    widths3 = [35, 35, 40, 70]  # total = 180
+    widths3 = [35, 35, 40, 70]  # sum=180
     for h, w in zip(headers3, widths3):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -517,7 +505,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(230, 230, 230)
     headers4 = ["Lab ID", "Sample ID", "Prep Method", "Analysis Method", "Prep Batch", "Batch Analysis"]
-    widths4 = [25, 30, 30, 30, 35, 30]  # total = 180
+    widths4 = [25, 30, 30, 30, 35, 30]  # sum=180
     for h, w in zip(headers4, widths4):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -538,6 +526,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "I", 8)
     pdf.cell(0, 10, f"Page {pdf.page_no()} of {total_pages}", 0, 0, "C")
     
+    # Return the PDF as bytes
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
