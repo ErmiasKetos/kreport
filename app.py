@@ -205,8 +205,10 @@ def main():
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids)
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-        selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()))
-        selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter])
+    
+        selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
+        selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
