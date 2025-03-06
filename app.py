@@ -317,21 +317,10 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(4)
-                          
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(4)
     
-    # We use no headings, just 2-col table for global info
-    # We'll color the label cells with a light gray, data cells with white fill
     left_width = effective_width / 2
     right_width = effective_width / 2
 
-    # Function to print a label->data row
     def table_row(label_text, data_text):
         pdf.set_font("Arial", "B", 10)
         pdf.set_fill_color(240, 240, 240)  # label cell color
@@ -363,7 +352,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(40, 6, "Address:", border=1, align="L", fill=True)
     pdf.set_font("Arial", "", 10)
     pdf.set_fill_color(255, 255, 255)
-    # multi_cell for address
     start_y = pdf.get_y()
     pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1, align="L")
     end_y = pdf.get_y()
@@ -394,20 +382,20 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.multi_cell(effective_width, 5, signature_text, border=0)
     pdf.ln(2)
 
-    # Insert the signature image (adjust name, x/y, width as needed)
+    # Insert the signature image
     current_y = pdf.get_y()
     try:
-        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=30)  # or .png if you have .png
+        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=40)  # or lab_managersign.png
         # Move the cursor below the image
-        pdf.set_y(current_y + 5)
+        pdf.set_y(current_y + 25)
     except:
         pdf.cell(0, 5, "[Signature image not found]", ln=True)
 
-    # Name & Title under the signature
-    pdf.ln(5)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 5, f"{cover_data['signatory_name']}", ln=True, align="L")
-    pdf.cell(0, 5, f"{cover_data['signatory_title']}",ln=True, align="L")
+    # Name & Title on separate lines, then Date
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, cover_data["signatory_name"], ln=True, align="L")
+    pdf.cell(0, 5, cover_data["signatory_title"], ln=True, align="L")
+    pdf.cell(0, 5, "Date: ______________________", ln=True, align="L")
 
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
