@@ -6,13 +6,13 @@ import random
 import string
 
 class PDF(FPDF):
-def footer(self):
-    # Position the footer 15 mm from the bottom
-    self.set_y(25)
-    # Set the font: Arial italic 8
-    self.set_font('Arial', 'I', 8)
-    # Add a cell with the page number (e.g., "Page 1 of {nb}")
-    self.cell(0, 10, f'Page {self.page_no()} of {{nb}}', 0, 0, 'C')
+    def footer(self):
+        # Position the footer 15 mm from the bottom
+        self.set_y(-25)
+        # Set the font: Arial italic 8
+        self.set_font('Arial', 'I', 8)
+        # Add a cell with the page number (e.g., "Page 1 of {nb}")
+        self.cell(0, 10, f'Page {self.page_no()} of {{nb}}', 0, 0, 'C')
 
 #####################################
 # Helper Data & Functions
