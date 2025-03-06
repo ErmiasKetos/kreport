@@ -398,8 +398,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # Name & Title under the signature
     pdf.ln(5)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, f"{cover_data['signatory_name']}," ln=True, align="L")
-    pdf.cell(0, 5, f"{cover_data['signatory_title']},"ln=True, align="L")
+    pdf.cell(0, 5, f"{cover_data['signatory_name']}", ln=True, align="L")
+    pdf.cell(0, 5, f"{cover_data['signatory_title']}",ln=True, align="L")
 
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
