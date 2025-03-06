@@ -403,9 +403,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # Insert the signature image
     current_y = pdf.get_y()
     try:
-        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=40)  # or lab_managersign.png
+        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=30)  # or lab_managersign.png
         # Move the cursor below the image
-        pdf.set_y(current_y + 25)
+        pdf.set_y(current_y + 15)
     except:
         pdf.cell(0, 5, "[Signature image not found]", ln=True)
 
