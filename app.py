@@ -409,7 +409,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # Add Lab Manager Signature Image (adjust x, y, width as needed)
     # For example, place the signature at x=15, current y, width=40 mm.
     current_y = pdf.get_y()
-    pdf.image("lab_manager_signature.png", x=15, y=current_y, w=40)
+    pdf.image("ab_managersign.jpg", x=15, y=current_y, w=40)
     pdf.ln(20)
     
     # ---------------------------
