@@ -389,7 +389,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # Insert the signature image (adjust name, x/y, width as needed)
     current_y = pdf.get_y()
     try:
-        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=40)  # or .png if you have .png
+        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=30)  # or .png if you have .png
         # Move the cursor below the image
         pdf.set_y(current_y + 25)
     except:
@@ -398,7 +398,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # Name & Title under the signature
     pdf.ln(5)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 5, f"{cover_data['signatory_name']}, {cover_data['signatory_title']}", ln=True, align="L")
+    pdf.cell(0, 5, f"{cover_data['signatory_name']}," ln=True, align="L")
+    pdf.cell(0, 5, f"{cover_data['signatory_title']},"ln=True, align="L")
 
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
