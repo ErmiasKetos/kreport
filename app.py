@@ -68,7 +68,7 @@ def main():
             "lab_name": lab_name,  # fixed
             "work_order": auto_work_order,
             "project_name": "Alberta Environment and Parks",
-            "client_name": "City of Edmonton",
+            "client_name": "",
             "address_line": "9450 - 17 Ave NW\nEdmonton AB Canada T6N 1M9",
             "phone": "111-999-8889",
             "date_samples_received": default_date,
@@ -78,7 +78,7 @@ def main():
             "po_number": "ABS 271",
             "report_title": "CERTIFICATE OF ANALYSIS",
             "comments": "None",
-            "signatory_name": "John Smith",
+            "signatory_name": "",
             "signatory_title": "Lab Manager",
         }
     st.header("Cover Page Fields (Optional Edits)")
