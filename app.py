@@ -317,6 +317,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(4)
+                          
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
     
     # We use no headings, just 2-col table for global info
     # We'll color the label cells with a light gray, data cells with white fill
