@@ -18,7 +18,6 @@ class PDF(FPDF):
 #####################################
 # Helper Functions
 #####################################
-
 def generate_id(prefix="LS", length=6):
     return prefix + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=length))
 
@@ -32,11 +31,9 @@ def generate_method_blank():
     digits = ''.join(random.choices("0123456789", k=5))
     return letters + digits
 
-# Auto-generate COC # in the format COC-######
 def generate_coc_number():
     return "COC-" + ''.join(random.choices("0123456789", k=6))
 
-# Auto-generate PO # in the format PO-KLyyyymm####
 def generate_po_number():
     return "PO-KL" + datetime.datetime.today().strftime("%Y%m") + ''.join(random.choices("0123456789", k=4))
 
@@ -91,38 +88,71 @@ analyte_to_methods = {
 }
 
 #####################################
-# MAIN APP WITH NAVIGATION
+# NAVIGATION: Pages and Progress Bar
 #####################################
-
-# Define pages for navigation
 PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control Data"]
 
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
 
-# Function to render the navigation bar
 def render_navbar():
-    st.markdown("<style>"
-                ".nav-button {background-color: #4CAF50; color: white; border: none; padding: 8px 16px; margin-right: 8px; cursor: pointer;}"
-                ".nav-button.active {background-color: #2196F3;}"
-                "</style>", unsafe_allow_html=True)
+    # CSS for colorful navigation buttons and progress bar
+    st.markdown(
+        """
+        <style>
+        .nav-button {
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            margin-right: 8px; 
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .nav-button.active {
+            background: linear-gradient(90deg, #2196F3, #4CAF50);
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .progress-bar-fill {
+            height: 16px;
+            background: linear-gradient(90deg, #2196F3, #4CAF50);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    # Render progress bar based on current page
+    progress = int((st.session_state.current_page + 1) / len(PAGES) * 100)
+    st.markdown(f"""
+    <div class="progress-bar-container">
+      <div class="progress-bar-fill" style="width: {progress}%"></div>
+    </div>
+    """, unsafe_allow_html=True)
+    
     cols = st.columns(len(PAGES))
     for i, page in enumerate(PAGES):
         if cols[i].button(page, key=f"nav_{i}"):
             st.session_state.current_page = i
 
-# Function to render Next/Back buttons at the bottom
 def render_nav_buttons():
     col1, col2 = st.columns(2)
     if st.session_state.current_page > 0:
-        if col1.button("Back"):
+        if col1.button("Back", key="back_nav"):
             st.session_state.current_page -= 1
     if st.session_state.current_page < len(PAGES) - 1:
-        if col2.button("Next"):
+        if col2.button("Next", key="next_nav"):
             st.session_state.current_page += 1
 
 #####################################
-# Main function
+# MAIN APP
 #####################################
 def main():
     st.title("Water Quality COA (Auto-Generated Fields)")
@@ -174,6 +204,8 @@ def main():
     st.session_state["cover_data"]["country"] = st.text_input("Country", value=st.session_state["cover_data"].get("country", ""))
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
+    
+    # Combine address fields into one address_line for PDF generation
     st.session_state["cover_data"]["address_line"] = (
         st.session_state["cover_data"]["street"] + ", " +
         st.session_state["cover_data"]["city"] + ", " +
@@ -181,6 +213,7 @@ def main():
         st.session_state["cover_data"]["zip"] + ", " +
         st.session_state["cover_data"]["country"]
     )
+    
     sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
     if "work_order" not in st.session_state["cover_data"] or st.session_state["cover_data"]["work_order"] == auto_work_order:
         try:
@@ -189,6 +222,7 @@ def main():
         except:
             date_str = datetime.date.today().strftime("%Y%m%d")
         st.session_state["cover_data"]["work_order"] = f"{sample_type}-{date_str}-0001"
+    
     st.subheader("Lab Manager Signatory")
     st.session_state["cover_data"]["signatory_name"] = st.text_input("Lab Manager Name", value=st.session_state["cover_data"]["signatory_name"])
     st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
@@ -218,7 +252,7 @@ def main():
             matrix = st.text_input("Matrix", value="Water")
             sample_date_collected = st.text_input("Date Collected", value=default_date)
             sample_date_received = st.text_input("Date Received", value=default_date)
-            if st.form_submit_button("Add Water Sample"):
+            if st.form_submit_button("Add Water Sample", key="add_sample"):
                 if not sample_lab_id.strip():
                     sample_lab_id = generate_id()
                 st.session_state["page1_data"]["samples"].append({
@@ -279,7 +313,7 @@ def main():
                 result_value = st.text_input("Result", value="ND")
             unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"], key="unit")
             
-            if st.form_submit_button("Add Analytical Result"):
+            if st.form_submit_button("Add Analytical Result", key="add_analytical"):
                 if result_lab_id:
                     st.session_state["page2_data"]["results"].append({
                         "lab_id": result_lab_id,
@@ -321,7 +355,7 @@ def main():
                 qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
             qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
             
-            if st.form_submit_button("Add QC Entry"):
+            if st.form_submit_button("Add QC Entry", key="add_qc"):
                 qc_batch = generate_qc_batch()
                 method_blank = generate_method_blank()
                 st.session_state["page3_data"]["qc_entries"].append({
@@ -347,10 +381,10 @@ def main():
             st.info("No QC data entries yet.")
         render_nav_buttons()
     
-    # Finally, if all pages are complete, show the Generate PDF button on the last page.
+    # Final step: Generate PDF when all pages are complete
     if st.session_state.current_page == len(PAGES)-1:
         st.markdown("### All pages completed.")
-        if st.button("Generate PDF and Download"):
+        if st.button("Generate PDF and Download", key="generate_pdf"):
             pdf_bytes = create_pdf_report(
                 lab_name=lab_name,
                 lab_address=lab_address,
@@ -365,9 +399,13 @@ def main():
                 "Download PDF",
                 data=pdf_bytes,
                 file_name="MultiPage_COA_withCover.pdf",
-                mime="application/pdf"
+                mime="application/pdf",
+                key="download_pdf"
             )
-            
+
+#####################################
+# PDF GENERATION FUNCTION
+#####################################
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       cover_data, page1_data, page2_data, page3_data):
     pdf = PDF("P", "mm", "A4")
@@ -562,7 +600,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     for qc_ in page3_data["qc_entries"]:
         qc_by_method[qc_["qc_method"]].append(qc_)
     
-    widths_qc = [45, 20, 20, 20, 40, 35]  # total ~180
+    widths_qc = [45, 20, 20, 20, 40, 35]
     for method, qcs in qc_by_method.items():
         pdf.set_font("DejaVu", "B", 10)
         pdf.cell(0, 5, f"QC Batch: {qcs[0]['qc_batch']}", ln=True, align="L")
