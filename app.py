@@ -12,7 +12,6 @@ from collections import defaultdict
 class PDF(FPDF):
     def footer(self):
         self.set_y(-15)
-        # Using built-in DejaVu fonts; ensure these .ttf files exist in your working directory
         self.set_font("DejaVu", "I", 8)
         self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
 
@@ -89,29 +88,39 @@ analyte_to_methods = {
 }
 
 #####################################
-# NAVIGATION: Pages and Progress Bar
+# NAVIGATION PAGES
 #####################################
 PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control Data"]
 
+#####################################
+# Initialize session state
+#####################################
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
 
+# Ensure cover_data is present
+if "cover_data" not in st.session_state:
+    st.session_state["cover_data"] = {}
+
+# Ensure page1_data is present
+if "page1_data" not in st.session_state:
+    st.session_state["page1_data"] = {}
+
+# Ensure page2_data is present
+if "page2_data" not in st.session_state:
+    st.session_state["page2_data"] = {}
+
+# Ensure page3_data is present
+if "page3_data" not in st.session_state:
+    st.session_state["page3_data"] = {}
+
+#####################################
+# Render Navbar (Top Buttons)
+#####################################
 def render_navbar():
     st.markdown(
         """
         <style>
-        .nav-button {
-            background-color: #4CAF50; 
-            color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            margin-right: 8px; 
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        .nav-button.active {
-            background: linear-gradient(90deg, #2196F3, #4CAF50);
-        }
         .progress-bar-container {
             width: 100%;
             background-color: #ddd;
@@ -135,70 +144,107 @@ def render_navbar():
       <div class="progress-bar-fill" style="width: {progress}%"></div>
     </div>
     """, unsafe_allow_html=True)
-    
-    cols = st.columns(len(PAGES))
-    for i, page in enumerate(PAGES):
-        # Use a unique key based solely on the page index.
-        if cols[i].button(page, key=f"nav_{i}"):
+
+    # Create columns for the top navbar
+    nav_cols = st.columns(len(PAGES))
+    for i, page_name in enumerate(PAGES):
+        # Each nav button has a unique key = nav_btn_i
+        if nav_cols[i].button(page_name, key=f"nav_btn_{i}"):
             st.session_state.current_page = i
 
+#####################################
+# Render Next/Back Buttons
+#####################################
 def render_nav_buttons():
+    # Use random suffix to ensure unique keys each time
+    random_suffix = ''.join(random.choices("0123456789", k=5))
     col1, col2 = st.columns(2)
     if st.session_state.current_page > 0:
-        if col1.button("Back", key=f"back_nav_{st.session_state.current_page}"):
+        if col1.button("Back", key=f"back_btn_{random_suffix}"):
             st.session_state.current_page -= 1
     if st.session_state.current_page < len(PAGES) - 1:
-        if col2.button("Next", key=f"next_nav_{st.session_state.current_page}"):
+        if col2.button("Next", key=f"next_btn_{random_suffix}"):
             st.session_state.current_page += 1
 
 #####################################
-# PAGE RENDERING FUNCTIONS
+# Page: Cover
 #####################################
 def render_cover_page():
     st.header("Cover Page Fields (Optional Edits)")
-    st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
-    st.session_state["cover_data"]["client_name"] = st.text_input("Client Name", value=st.session_state["cover_data"]["client_name"])
-    st.session_state["cover_data"]["street"] = st.text_input("Street Address", value=st.session_state["cover_data"].get("street", ""))
-    st.session_state["cover_data"]["city"] = st.text_input("City", value=st.session_state["cover_data"].get("city", ""))
-    st.session_state["cover_data"]["state"] = st.text_input("State/Province/Region", value=st.session_state["cover_data"].get("state", ""))
-    st.session_state["cover_data"]["zip"] = st.text_input("Postal/Zip Code", value=st.session_state["cover_data"].get("zip", ""))
-    st.session_state["cover_data"]["country"] = st.text_input("Country", value=st.session_state["cover_data"].get("country", ""))
-    st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
-    st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
-    
-    st.session_state["cover_data"]["address_line"] = (
-        st.session_state["cover_data"]["street"] + ", " +
-        st.session_state["cover_data"]["city"] + ", " +
-        st.session_state["cover_data"]["state"] + " " +
-        st.session_state["cover_data"]["zip"] + ", " +
-        st.session_state["cover_data"]["country"]
+    default_date = datetime.date.today().strftime("%m/%d/%Y")
+
+    # If not set, initialize st.session_state["cover_data"] with defaults
+    cover = st.session_state["cover_data"]
+    if not cover:
+        cover["lab_name"] = "KELP Laboratory"
+        cover["work_order"] = "WO" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
+        cover["project_name"] = ""
+        cover["client_name"] = ""
+        cover["street"] = ""
+        cover["city"] = ""
+        cover["state"] = ""
+        cover["zip"] = ""
+        cover["country"] = ""
+        cover["phone"] = ""
+        cover["date_samples_received"] = default_date
+        cover["date_reported"] = default_date
+        cover["analysis_type"] = "Environmental"
+        cover["coc_number"] = generate_coc_number()
+        cover["po_number"] = generate_po_number()
+        cover["report_title"] = "CERTIFICATE OF ANALYSIS"
+        cover["comments"] = "None"
+        cover["signatory_name"] = ""
+        cover["signatory_title"] = "Lab Manager"
+
+    # Editable fields
+    cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name", ""))
+    cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name", ""))
+    cover["street"] = st.text_input("Street Address", value=cover.get("street", ""))
+    cover["city"] = st.text_input("City", value=cover.get("city", ""))
+    cover["state"] = st.text_input("State/Province/Region", value=cover.get("state", ""))
+    cover["zip"] = st.text_input("Postal/Zip Code", value=cover.get("zip", ""))
+    cover["country"] = st.text_input("Country", value=cover.get("country", ""))
+    cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type", "Environmental"))
+    cover["comments"] = st.text_area("Comments / Narrative", value=cover.get("comments", "None"))
+
+    # Rebuild address line
+    cover["address_line"] = (
+        cover["street"] + ", " +
+        cover["city"] + ", " +
+        cover["state"] + " " +
+        cover["zip"] + ", " +
+        cover["country"]
     )
-    
+
     sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
     try:
-        dt = datetime.datetime.strptime(st.session_state["cover_data"]["date_samples_received"], "%m/%d/%Y")
+        dt = datetime.datetime.strptime(cover["date_samples_received"], "%m/%d/%Y")
         date_str = dt.strftime("%Y%m%d")
-    except Exception:
+    except:
         date_str = datetime.date.today().strftime("%Y%m%d")
-    st.session_state["cover_data"]["work_order"] = f"{sample_type}-{date_str}-0001"
-    
+    cover["work_order"] = f"{sample_type}-{date_str}-0001"
+
     st.subheader("Lab Manager Signatory")
-    st.session_state["cover_data"]["signatory_name"] = st.text_input("Lab Manager Name", value=st.session_state["cover_data"]["signatory_name"])
-    st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
-    
+    cover["signatory_name"] = st.text_input("Lab Manager Name", value=cover.get("signatory_name", ""))
+    cover["signatory_title"] = st.text_input("Lab Manager Title", value=cover.get("signatory_title", "Lab Manager"))
+
     render_nav_buttons()
 
+#####################################
+# Page 1: SAMPLE SUMMARY
+#####################################
 def render_sample_summary_page():
-    if "page1_data" not in st.session_state:
-        st.session_state["page1_data"] = {
-            "report_id": "".join(random.choices("0123456789", k=7)),
-            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
-            "client_name": st.session_state["cover_data"]["client_name"],
-            "client_address": st.session_state["cover_data"]["address_line"],
-            "project_id": "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4)),
-            "samples": []
-        }
+    page1 = st.session_state["page1_data"]
+    if not page1:
+        page1["report_id"] = "".join(random.choices("0123456789", k=7))
+        page1["report_date"] = datetime.date.today().strftime("%m/%d/%Y")
+        page1["client_name"] = st.session_state["cover_data"].get("client_name", "")
+        page1["client_address"] = st.session_state["cover_data"].get("address_line", "")
+        page1["project_id"] = "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
+        page1["samples"] = []
+
     st.header("Page 1: SAMPLE SUMMARY")
+
     with st.form("page1_samples_form", clear_on_submit=True):
         sample_lab_id = st.text_input("Lab ID (Leave blank for auto-gen)", value="")
         sample_id = st.text_input("Sample ID", value="")
@@ -208,43 +254,50 @@ def render_sample_summary_page():
         if st.form_submit_button("Add Water Sample"):
             if not sample_lab_id.strip():
                 sample_lab_id = generate_id()
-            st.session_state["page1_data"]["samples"].append({
+            page1["samples"].append({
                 "lab_id": sample_lab_id,
                 "sample_id": sample_id,
                 "matrix": matrix,
                 "date_collected": sample_date_collected,
                 "date_received": sample_date_received
             })
+
     st.write("**Current Water Samples (Page 1):**")
-    if st.session_state["page1_data"]["samples"]:
-        for i, s_ in enumerate(st.session_state["page1_data"]["samples"], 1):
+    if page1["samples"]:
+        for i, s_ in enumerate(page1["samples"], 1):
             st.write(f"{i}. Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, Collected: {s_['date_collected']}, Received: {s_['date_received']}")
     else:
         st.info("No water samples added yet.")
+
     render_nav_buttons()
 
+#####################################
+# Page 2: ANALYTICAL RESULTS
+#####################################
 def render_analytical_results_page():
-    if "page2_data" not in st.session_state:
-        st.session_state["page2_data"] = {
-            "workorder_name": st.session_state["cover_data"]["work_order"],
-            "global_analysis_date": datetime.date.today().strftime("%m/%d/%Y") + " 10:00",
-            "results": [],
-            "report_id": st.session_state["page1_data"]["report_id"],
-            "report_date": st.session_state["page1_data"]["report_date"]
-        }
+    page2 = st.session_state["page2_data"]
+    if not page2:
+        page2["workorder_name"] = st.session_state["cover_data"].get("work_order", "WO-UNKNOWN")
+        page2["global_analysis_date"] = datetime.date.today().strftime("%m/%d/%Y") + " 10:00"
+        page2["results"] = []
+        # Tie these to page1_data if needed
+        page2["report_id"] = st.session_state["page1_data"].get("report_id", "0000000")
+        page2["report_date"] = st.session_state["page1_data"].get("report_date", datetime.date.today().strftime("%m/%d/%Y"))
+
     st.header("Page 2: ANALYTICAL RESULTS")
-    st.text(f"Work Order: {st.session_state['page2_data']['workorder_name']}")
-    st.text(f"Report ID: {st.session_state['page2_data']['report_id']}")
-    st.text(f"Report Date: {st.session_state['page2_data']['report_date']}")
-    st.text(f"Global Analysis Date: {st.session_state['page2_data']['global_analysis_date']}")
-    
+    st.text(f"Work Order: {page2['workorder_name']}")
+    st.text(f"Report ID: {page2['report_id']}")
+    st.text(f"Report Date: {page2['report_date']}")
+    st.text(f"Global Analysis Date: {page2['global_analysis_date']}")
+
     selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
     selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
-    
+
     with st.form("page2_results_form", clear_on_submit=True):
         st.write(f"Selected Analyte: {selected_parameter}")
         st.write(f"Selected Method: {selected_method}")
-        lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"]["samples"]]
+
+        lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"].get("samples", [])]
         if lab_ids:
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
             sample_id_val = next((s["sample_id"] for s in st.session_state["page1_data"]["samples"] if s["lab_id"] == result_lab_id), "")
@@ -252,6 +305,7 @@ def render_analytical_results_page():
         else:
             result_lab_id = st.text_input("Lab ID", value="")
             sample_id_val = ""
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
@@ -262,10 +316,10 @@ def render_analytical_results_page():
         with col4:
             result_value = st.text_input("Result", value="ND")
         unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"], key="unit")
-        
+
         if st.form_submit_button("Add Analytical Result"):
             if result_lab_id:
-                st.session_state["page2_data"]["results"].append({
+                page2["results"].append({
                     "lab_id": result_lab_id,
                     "sample_id": sample_id_val,
                     "parameter": selected_parameter,
@@ -276,20 +330,29 @@ def render_analytical_results_page():
                     "result": result_value,
                     "unit": unit_value
                 })
+
     st.write("**Current Analytical Results (Page 2):**")
-    if st.session_state["page2_data"]["results"]:
-        for i, r_ in enumerate(st.session_state["page2_data"]["results"], 1):
+    if page2["results"]:
+        for i, r_ in enumerate(page2["results"], 1):
             st.write(f"{i}. Lab ID: {r_['lab_id']}, Sample ID: {r_.get('sample_id','')}, Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
     else:
         st.info("No analytical results added yet.")
+
     render_nav_buttons()
 
+#####################################
+# Page 3: QUALITY CONTROL
+#####################################
 def render_quality_control_page():
-    if "page3_data" not in st.session_state:
-        st.session_state["page3_data"] = {"qc_entries": []}
+    page3 = st.session_state["page3_data"]
+    if not page3:
+        page3["qc_entries"] = []
+
     st.header("Page 3: QUALITY CONTROL DATA")
+
     qc_selected_analyte = st.selectbox("QC Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="qc_analyte")
     qc_selected_method = st.selectbox("QC Analysis (Method)", options=analyte_to_methods[qc_selected_analyte], key="qc_method")
+
     with st.form("page3_qc_form", clear_on_submit=True):
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -301,11 +364,11 @@ def render_quality_control_page():
         with col4:
             qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
         qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
-        
+
         if st.form_submit_button("Add QC Entry"):
             qc_batch = generate_qc_batch()
             method_blank = generate_method_blank()
-            st.session_state["page3_data"]["qc_entries"].append({
+            page3["qc_entries"].append({
                 "qc_batch": qc_batch,
                 "qc_method": qc_selected_method,
                 "parameter": qc_selected_analyte,
@@ -316,9 +379,10 @@ def render_quality_control_page():
                 "lab_qualifier": qc_lab_qualifier,
                 "method_blank": method_blank
             })
+
     st.write("**Current QC Data (Page 3):**")
-    if st.session_state["page3_data"]["qc_entries"]:
-        for i, qc_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
+    if page3["qc_entries"]:
+        for i, qc_ in enumerate(page3["qc_entries"], 1):
             st.write(
                 f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, Parameter: {qc_['parameter']}, "
                 f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, Method Blank Conc.: {qc_['blank_result']}, "
@@ -326,88 +390,11 @@ def render_quality_control_page():
             )
     else:
         st.info("No QC data entries yet.")
+
     render_nav_buttons()
 
 #####################################
-# MAIN APP - Single Page Display
-#####################################
-def main_app():
-    st.title("Water Quality COA (Auto-Generated Fields)")
-    render_navbar()
-    
-    # Global fixed values
-    lab_name = "KELP Laboratory"
-    lab_address = "520 Mercury Dr, Sunnyvale, CA 94085"
-    lab_email = "kelp@ketoslab.com"
-    lab_phone = "(408) 461-8860"
-    
-    auto_work_order = "WO" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
-    auto_coc_number = generate_coc_number()
-    auto_po_number = generate_po_number()
-    default_date = datetime.date.today().strftime("%m/%d/%Y")
-    
-    if "cover_data" not in st.session_state:
-        st.session_state["cover_data"] = {
-            "lab_name": lab_name,
-            "work_order": auto_work_order,
-            "project_name": "",
-            "client_name": "",
-            "street": "",
-            "city": "",
-            "state": "",
-            "zip": "",
-            "country": "",
-            "phone": "",
-            "date_samples_received": default_date,
-            "date_reported": default_date,
-            "analysis_type": "Environmental",
-            "coc_number": auto_coc_number,
-            "po_number": auto_po_number,
-            "report_title": "CERTIFICATE OF ANALYSIS",
-            "comments": "None",
-            "signatory_name": "",
-            "signatory_title": "Lab Manager",
-        }
-    
-    page_container = st.empty()
-    
-    if st.session_state.current_page == 0:
-        with page_container:
-            render_cover_page()
-    elif st.session_state.current_page == 1:
-        with page_container:
-            render_sample_summary_page()
-    elif st.session_state.current_page == 2:
-        with page_container:
-            render_analytical_results_page()
-    elif st.session_state.current_page == 3:
-        with page_container:
-            render_quality_control_page()
-    
-    # On the final page, show the Generate PDF button.
-    if st.session_state.current_page == len(PAGES) - 1:
-        st.markdown("### All pages completed.")
-        if st.button("Generate PDF and Download", key="generate_pdf"):
-            pdf_bytes = create_pdf_report(
-                lab_name=lab_name,
-                lab_address=lab_address,
-                lab_email=lab_email,
-                lab_phone=lab_phone,
-                cover_data=st.session_state["cover_data"],
-                page1_data=st.session_state["page1_data"],
-                page2_data=st.session_state["page2_data"],
-                page3_data=st.session_state["page3_data"]
-            )
-            st.download_button(
-                "Download PDF",
-                data=pdf_bytes,
-                file_name="MultiPage_COA_withCover.pdf",
-                mime="application/pdf",
-                key="download_pdf"
-            )
-
-#####################################
-# PDF GENERATION FUNCTION
+# PDF GENERATION
 #####################################
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       cover_data, page1_data, page2_data, page3_data):
@@ -416,21 +403,23 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_text_color(0, 0, 0)
     effective_width = 180
-    total_pages = 4  # Cover, Page 1, Page 2, Page 3
+    total_pages = 4
 
+    # Load DejaVu fonts if you have them:
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
     pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
     pdf.set_font("DejaVu", "", 10)
-    
+
+    # (Cover Page, Sample Summary, Analytical Results, Quality Control)
     # ---------------------------
     # 0. COVER PAGE
     # ---------------------------
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
+    pdf.cell(0, 10, cover_data.get("report_title", "CERTIFICATE OF ANALYSIS"), ln=True, align="C")
     pdf.ln(4)
-                          
+
     pdf.set_font("DejaVu", "B", 12)
     pdf.set_fill_color(230, 230, 230)
     pdf.cell(0, 6, lab_name, ln=True, align="R")
@@ -438,7 +427,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0, 5, lab_address, ln=True, align="R")
     pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
     pdf.ln(4)
-    
+
     left_width = effective_width / 2
     right_width = effective_width / 2
 
@@ -450,13 +439,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.set_fill_color(255, 255, 255)
         pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L", fill=True)
 
-    table_row("Work Order:", cover_data["work_order"])
-    table_row("Project:", cover_data["project_name"])
-    table_row("Analysis Type:", cover_data["analysis_type"])
-    table_row("COC #:", cover_data["coc_number"])
-    table_row("PO #:", cover_data["po_number"])
-    table_row("Date Samples Received:", cover_data["date_samples_received"])
-    table_row("Date Reported:", cover_data["date_reported"])
+    table_row("Work Order:", cover_data.get("work_order", ""))
+    table_row("Project:", cover_data.get("project_name", ""))
+    table_row("Analysis Type:", cover_data.get("analysis_type", ""))
+    table_row("COC #:", cover_data.get("coc_number", ""))
+    table_row("PO #:", cover_data.get("po_number", ""))
+    table_row("Date Samples Received:", cover_data.get("date_samples_received", ""))
+    table_row("Date Reported:", cover_data.get("date_reported", ""))
     pdf.ln(4)
 
     pdf.set_font("DejaVu", "B", 10)
@@ -464,14 +453,15 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(40, 6, "Client Name:", border=1, align="L", fill=True)
     pdf.set_font("DejaVu", "", 10)
     pdf.set_fill_color(255, 255, 255)
-    pdf.cell(effective_width - 40, 6, cover_data["client_name"], border=1, ln=True, align="L", fill=True)
+    pdf.cell(effective_width - 40, 6, cover_data.get("client_name", ""), border=1, ln=True, align="L", fill=True)
 
     pdf.set_font("DejaVu", "B", 10)
     pdf.set_fill_color(240, 240, 240)
     pdf.cell(40, 6, "Address:", border=1, align="L", fill=True)
     pdf.set_font("DejaVu", "", 10)
     pdf.set_fill_color(255, 255, 255)
-    pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1, align="L")
+    address_line = cover_data.get("address_line", "")
+    pdf.multi_cell(effective_width - 40, 6, address_line, border=1, align="L")
     pdf.ln(2)
 
     pdf.set_font("DejaVu", "B", 10)
@@ -479,13 +469,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(40, 6, "Phone:", border=1, align="L", fill=True)
     pdf.set_font("DejaVu", "", 10)
     pdf.set_fill_color(255, 255, 255)
-    pdf.cell(effective_width - 40, 6, cover_data["phone"], border=1, ln=True, align="L", fill=True)
+    pdf.cell(effective_width - 40, 6, cover_data.get("phone", ""), border=1, ln=True, align="L", fill=True)
     pdf.ln(4)
 
     pdf.set_font("DejaVu", "B", 10)
     pdf.cell(effective_width, 6, "Comments / Case Narrative", ln=True, align="L")
     pdf.set_font("DejaVu", "", 10)
-    pdf.multi_cell(effective_width, 5, cover_data["comments"], border=1)
+    pdf.multi_cell(effective_width, 5, cover_data.get("comments", ""), border=1)
     pdf.ln(4)
 
     pdf.set_font("DejaVu", "", 10)
@@ -505,60 +495,57 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.cell(0, 5, "[Signature image not found]", ln=True)
 
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 5, cover_data["signatory_name"], ln=True, align="L")
-    pdf.cell(0, 5, cover_data["signatory_title"], ln=True, align="L")
+    pdf.cell(0, 5, cover_data.get("signatory_name", ""), ln=True, align="L")
+    pdf.cell(0, 5, cover_data.get("signatory_title", ""), ln=True, align="L")
     signature_date = datetime.date.today().strftime("%m/%d/%Y")
     pdf.cell(0, 5, f"Date: {signature_date}", ln=True, align="L")
 
-    # ---------------------------
-    # 1. PAGE 1: SAMPLE SUMMARY
-    # ---------------------------
+    # PAGE 1: SAMPLE SUMMARY
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "SAMPLE SUMMARY", ln=True, align="C")
     pdf.ln(2)
-    
+
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Client: {cover_data['client_name']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Address: {cover_data['address_line']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report ID: {page1_data.get('report_id', '')}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report Date: {page1_data.get('report_date', '')}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Client: {cover_data.get('client_name', '')}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Address: {cover_data.get('address_line', '')}", ln=True, align="L")
     pdf.ln(4)
-    
+
     pdf.set_font("DejaVu", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
     widths = [30, 40, 30, 40, 40]
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
-    
+
     pdf.set_font("DejaVu", "", 10)
-    for s_ in page1_data["samples"]:
+    for s_ in page1_data.get("samples", []):
         row_vals = [s_["lab_id"], s_["sample_id"], s_["matrix"], s_["date_collected"], s_["date_received"]]
         for val, w in zip(row_vals, widths):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
-    
-    # ---------------------------
-    # 2. PAGE 2: ANALYTICAL RESULTS (Separate table for each Lab ID and Sample ID)
-    # ---------------------------
+
+    # PAGE 2: ANALYTICAL RESULTS
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "ANALYTICAL RESULTS", ln=True, align="C")
     pdf.ln(2)
-    
+
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report ID: {page2_data.get('report_id', '')}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report Date: {page2_data.get('report_date', '')}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data.get('global_analysis_date', '')}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Work Order: {page2_data.get('workorder_name', '')}", ln=True, align="L")
     pdf.ln(4)
-    
+
+    from collections import defaultdict
     results_by_lab = defaultdict(list)
-    for r_ in page2_data["results"]:
+    for r_ in page2_data.get("results", []):
         key = (r_["lab_id"], r_.get("sample_id", ""))
         results_by_lab[key].append(r_)
-    
+
     widths2 = [40, 35, 20, 20, 20, 30, 15]
     for (lab_id, sample_id), results_list in results_by_lab.items():
         header_text = f"Analytical Results for Lab ID: {lab_id}"
@@ -569,8 +556,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.ln(2)
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
-        headers2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-        for h, w in zip(headers2, widths2):
+        heads2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
+        for h, w in zip(heads2, widths2):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
         pdf.set_font("DejaVu", "", 10)
@@ -580,26 +567,24 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
         pdf.ln(10)
-    
-    # ---------------------------
-    # 3. PAGE 3: QUALITY CONTROL DATA (Grouped by QC Analysis Method)
-    # ---------------------------
+
+    # PAGE 3: QUALITY CONTROL
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "QUALITY CONTROL DATA", ln=True, align="C")
     pdf.ln(2)
-    
+
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+    pdf.cell(0, 5, f"Work Order: {page2_data.get('workorder_name','')}", ln=True, align="L")
+    pdf.cell(0, 5, f"Report ID: {page2_data.get('report_id','')}", ln=True, align="L")
+    pdf.cell(0, 5, f"Report Date: {page2_data.get('report_date','')}", ln=True, align="L")
+    pdf.cell(0, 5, f"Global Analysis Date: {page2_data.get('global_analysis_date','')}", ln=True, align="L")
     pdf.ln(5)
-    
+
     qc_by_method = defaultdict(list)
-    for qc_ in page3_data["qc_entries"]:
+    for qc_ in page3_data.get("qc_entries", []):
         qc_by_method[qc_["qc_method"]].append(qc_)
-    
+
     widths_qc = [45, 20, 20, 20, 40, 35]
     for method, qcs in qc_by_method.items():
         pdf.set_font("DejaVu", "B", 10)
@@ -609,8 +594,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.ln(3)
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
-        headers_qc = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
-        for h, w in zip(headers_qc, widths_qc):
+        heads_qc = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
+        for h, w in zip(heads_qc, widths_qc):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
         pdf.set_font("DejaVu", "", 10)
@@ -627,107 +612,67 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
         pdf.ln(10)
-    
+
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
     pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
                          "Test results reported relate only to the samples as received by the laboratory.")
-    
+
     pdf.set_y(-15)
     pdf.set_font("DejaVu", "I", 8)
     pdf.cell(0, 10, f"Page {pdf.page_no()} of {total_pages}", 0, 0, "C")
-    
+
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
     return buffer.read()
 
+#####################################
+# Main App
+#####################################
+def main_app():
+    st.title("Water Quality COA (Auto-Generated Fields)")
+    # Render top navbar
+    render_navbar()
+
+    # Single-page container
+    page_container = st.empty()
+
+    # Decide which page to show
+    if st.session_state.current_page == 0:
+        with page_container:
+            render_cover_page()
+    elif st.session_state.current_page == 1:
+        with page_container:
+            render_sample_summary_page()
+    elif st.session_state.current_page == 2:
+        with page_container:
+            render_analytical_results_page()
+    elif st.session_state.current_page == 3:
+        with page_container:
+            render_quality_control_page()
+
+    # If we are on the last page, show "Generate PDF" button
+    if st.session_state.current_page == len(PAGES) - 1:
+        st.markdown("### All pages completed.")
+        if st.button("Generate PDF and Download", key="generate_pdf_btn"):
+            pdf_bytes = create_pdf_report(
+                lab_name="KELP Laboratory",
+                lab_address="520 Mercury Dr, Sunnyvale, CA 94085",
+                lab_email="kelp@ketoslab.com",
+                lab_phone="(408) 461-8860",
+                cover_data=st.session_state["cover_data"],
+                page1_data=st.session_state["page1_data"],
+                page2_data=st.session_state["page2_data"],
+                page3_data=st.session_state["page3_data"]
+            )
+            st.download_button(
+                "Download PDF",
+                data=pdf_bytes,
+                file_name="MultiPage_COA_withCover.pdf",
+                mime="application/pdf",
+                key="download_pdf_btn"
+            )
+
 if __name__ == "__main__":
-    # Initialize session state keys if not already set.
-    if "current_page" not in st.session_state:
-        st.session_state.current_page = 0
-    if "cover_data" not in st.session_state:
-        st.session_state["cover_data"] = {}
-    if "page1_data" not in st.session_state:
-        st.session_state["page1_data"] = {}
-    if "page2_data" not in st.session_state:
-        st.session_state["page2_data"] = {}
-    if "page3_data" not in st.session_state:
-        st.session_state["page3_data"] = {}
-    
-    def main_app():
-        st.title("Water Quality COA (Auto-Generated Fields)")
-        render_navbar()
-    
-        # Global fixed values
-        lab_name = "KELP Laboratory"
-        lab_address = "520 Mercury Dr, Sunnyvale, CA 94085"
-        lab_email = "kelp@ketoslab.com"
-        lab_phone = "(408) 461-8860"
-    
-        auto_work_order = "WO" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
-        auto_coc_number = generate_coc_number()
-        auto_po_number = generate_po_number()
-        default_date = datetime.date.today().strftime("%m/%d/%Y")
-    
-        if "cover_data" not in st.session_state or not st.session_state["cover_data"]:
-            st.session_state["cover_data"] = {
-                "lab_name": lab_name,
-                "work_order": auto_work_order,
-                "project_name": "",
-                "client_name": "",
-                "street": "",
-                "city": "",
-                "state": "",
-                "zip": "",
-                "country": "",
-                "phone": "",
-                "date_samples_received": default_date,
-                "date_reported": default_date,
-                "analysis_type": "Environmental",
-                "coc_number": auto_coc_number,
-                "po_number": auto_po_number,
-                "report_title": "CERTIFICATE OF ANALYSIS",
-                "comments": "None",
-                "signatory_name": "",
-                "signatory_title": "Lab Manager",
-            }
-    
-        page_container = st.empty()
-    
-        if st.session_state.current_page == 0:
-            with page_container:
-                render_cover_page()
-        elif st.session_state.current_page == 1:
-            with page_container:
-                render_sample_summary_page()
-        elif st.session_state.current_page == 2:
-            with page_container:
-                render_analytical_results_page()
-        elif st.session_state.current_page == 3:
-            with page_container:
-                render_quality_control_page()
-    
-        # On the final page, show the Generate PDF button.
-        if st.session_state.current_page == len(PAGES) - 1:
-            st.markdown("### All pages completed.")
-            if st.button("Generate PDF and Download", key="generate_pdf"):
-                pdf_bytes = create_pdf_report(
-                    lab_name=lab_name,
-                    lab_address=lab_address,
-                    lab_email=lab_email,
-                    lab_phone=lab_phone,
-                    cover_data=st.session_state["cover_data"],
-                    page1_data=st.session_state["page1_data"],
-                    page2_data=st.session_state["page2_data"],
-                    page3_data=st.session_state["page3_data"]
-                )
-                st.download_button(
-                    "Download PDF",
-                    data=pdf_bytes,
-                    file_name="MultiPage_COA_withCover.pdf",
-                    mime="application/pdf",
-                    key="download_pdf"
-                )
-    
     main_app()
