@@ -527,22 +527,27 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
 
-    # Group results by lab_id
-    results_by_lab_id = defaultdict(list)
-    for r_ in page2_data["results"]:
-        results_by_lab_id[r_["lab_id"]].append(r_)
+ 
+    # Group results by a tuple (lab_id, sample_id)
+    results_by_lab = defaultdict(list)
+    for r in page2_data["results"]:
+        key = (r["lab_id"], r.get("sample_id", ""))
+        results_by_lab[key].append(r)
     
-    for lab_id, results_list in results_by_lab_id.items():
+    # Iterate over each group and create a table for each
+    for (lab_id, sample_id), results_list in results_by_lab.items():
         pdf.set_font("DejaVu", "B", 12)
         pdf.cell(0, 8, f"Analytical Results for Lab ID: {lab_id}, {sample_id}", ln=True, align="L")
         pdf.ln(2)
+        
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
         headers2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-        widths2 = [35, 30, 15, 15, 15, 30, 15]
+        widths2 = [35, 30, 15, 15, 15, 30, 15]  # adjust widths as needed
         for h, w in zip(headers2, widths2):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
+        
         pdf.set_font("DejaVu", "", 10)
         for row in results_list:
             row_data = [row["parameter"], row["analysis"], row["df"], row["mdl"], row["pql"], row["result"], row["unit"]]
@@ -550,6 +555,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
         pdf.ln(10)
+
     
     # ---------------------------
     # 3. PAGE 3: QUALITY CONTROL DATA (Grouped by QC Analysis Method)
