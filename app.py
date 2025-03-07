@@ -105,6 +105,12 @@ def main():
     auto_coc_number = "COC" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
     default_date = datetime.date.today().strftime("%m/%d/%Y")
 
+    # Auto-generate COC # in the format COC-######
+    auto_coc_number = "COC-" + ''.join(random.choices("0123456789", k=6))
+    # Auto-generate PO # in the format PO-KLyyyymm####
+    auto_po_number = "PO-KL" + datetime.datetime.today().strftime("%Y%m") + ''.join(random.choices("0123456789", k=4))
+
+
     #####################################
     # 0. Cover Page Data
     #####################################
@@ -125,7 +131,7 @@ def main():
             "date_reported": default_date,
             "analysis_type": "Environmental",
             "coc_number": auto_coc_number,
-            "po_number": "ABS 271",
+            "po_number": auto_po_number,
             "report_title": "CERTIFICATE OF ANALYSIS",
             "comments": "None",
             "signatory_name": "",
