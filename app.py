@@ -46,7 +46,7 @@ analyte_to_methods = {
     "Microplastics ≤212 - >20 µm": ["SWB-MP2-rev1"],
     "Microplastics ≤212 - >50 µm": ["SWB-MP1-rev1"],
     "Microplastics ≤500 - >212 µm": ["SWB-MP1-rev1", "SWB-MP2-rev1"],
-    "Nickel": [SM 3500-Ni D", "EPA 200.8"],
+    "Nickel": ["SM 3500-Ni D", "EPA 200.8"],
     "Nitrate": ["EPA 300.0", "EPA 300.1", "SM 4110B-2000", "SM 4500-NO3-D-2000", "SM 4500-NO3 E-2000", "SM 4500-NO3 F-2000", "Hach 10206"],
     "Nitrate (Calculation)": ["EPA 353.2"],
     "Nitrite": ["EPA 300.0", "EPA 300.1", "EPA 353.2", "SM 4110B-2000", "SM 4500-NO3 E-2000"],
