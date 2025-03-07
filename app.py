@@ -83,7 +83,7 @@ analyte_to_methods = {
     "Organic carbon-Total (TOC)": ["SM 5310 B-2000", "SM 5310C-2000", "SM 5310D-2000"],
     "Perchlorate": ["EPA 314.0", "EPA 314.1", "EPA 314.2", "EPA 331.0", "EPA 332.0"],
     "Phosphate, Ortho": ["EPA 300.0", "EPA 300.1", "EPA 365.1", "SM 4110B-2000", "SM 4500-P E-1997", "SM 4500-P F -1997"],
-    "Potassium": ["EPA 200.7", "SM 3111 B-1999", "SM 3120 B-1999"],
+    "Potassium": ["EPA 200.7", "SM 3111 B-1999", "SM 3120 B-1999", "SM 3500 K C-1997"],
     "Residue, Filterable TDS": ["SM 2540 C-1997"],
     "Silica": ["EPA 200.5", "EPA 200.7", "SM 3120 B-1999", "SM 4500-SiO2 C-1997", "SM 4500-SiO2 D-1997", "SM 4500-SiO2 E-1997"],
     "Sodium": ["EPA 200.5", "EPA 200.7", "SM 3111 B-1999"],
