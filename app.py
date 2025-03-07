@@ -402,12 +402,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     # Move below logo
     pdf.set_y(35)
 
-    # pdf.set_font("DejaVu", "B", 16)
-    # pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(10)
 
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    #pdf.cell(0, 6, lab_name, ln=True, align="R")
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(0, 5, lab_address, ln=True, align="R")
     pdf.cell(0, 5, f"Email: {lab_email}", ln=True, align="R")
