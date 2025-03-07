@@ -400,9 +400,6 @@ def main():
     # Render the top nav
     render_navbar()
 
-    # Single page container
-    page_spot = st.empty()
-
     # Decide page
     page_idx = st.session_state.current_page
     if page_idx == 0:
