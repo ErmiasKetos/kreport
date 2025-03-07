@@ -6,6 +6,12 @@ import random
 import string
 from collections import defaultdict
 
+def reset_app():
+    """Clears all session state variables and reloads the app."""
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.experimental_rerun()
+
 #####################################
 # PDF Class for Page Numbers
 #####################################
@@ -637,6 +643,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
 
 def main():
     st.title("Water Quality COA")
+    if st.button("🔄 Refresh / Start Over"):
+        reset_app()
 
     # Render the top nav
     render_navbar()
