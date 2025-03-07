@@ -409,8 +409,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 6, lab_name, ln=True, align="R")
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(4)
+    pdf.cell(0, 5, f"Email: {lab_phone}", ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}", ln=True, align="R")
+    pdf.ln(5)
     
     left_width = effective_width / 2
     right_width = effective_width / 2
