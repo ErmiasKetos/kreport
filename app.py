@@ -391,10 +391,10 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.add_page()
 
     # Insert the KELP logo on the right side above lab details
-    logo_width = 40
+    logo_width = 70
     margin_right = 15
     try:
-        pdf.image("kelp_logo.png", x=210 - logo_width - margin_right, y=10, w=logo_width)
+        pdf.image("kelp_logo.png", x=210 - logo_width - margin_right, y=1, w=logo_width)
     except Exception as e:
         pdf.set_font("DejaVu", "", 8)
         pdf.cell(0, 10, "[Logo not found]", align="R")
@@ -402,8 +402,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     # Move below logo
     pdf.set_y(35)
 
-    pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
+    # pdf.set_font("DejaVu", "B", 16)
+    # pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(10)
 
     pdf.set_font("DejaVu", "B", 12)
