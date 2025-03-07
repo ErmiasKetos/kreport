@@ -365,17 +365,28 @@ def render_quality_control_page():
 class MyPDF(FPDF):
     pass
 
+
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       cover_data, page1_data, page2_data, page3_data):
     pdf = PDF("P","mm","A4")
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # For Unicode (DejaVu fonts), ensure you have the .ttf in the same dir:
+    # Font setup
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
     pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
     pdf.set_font("DejaVu","",10)
+
+    # Calculate effective width here
+    effective_width = pdf.w - 2 * pdf.l_margin
+
+    # Now, you can safely use effective_width
+    left_width = effective_width / 2
+    right_width = effective_width / 2
+
+    # Rest of your PDF generation code...
+
 
     # ---------------------------
     # 0. COVER PAGE
