@@ -21,6 +21,7 @@ class PDF(FPDF):
 # Mapping of analyte to list of possible methods
 analyte_to_methods = {
     "Alkalinity": ["SM 2320 B-1997"],
+    "Ammonia": ["SM 4500-NH₃ C"],
     "Bromate": ["EPA 300.1", "EPA 302.0", "EPA 317.0", "EPA 321.8", "EPA 326.0", "EPA 557.0"],
     "Bromide": ["EPA 300.0", "EPA 300.1", "EPA 317.0", "EPA 326.0"],
     "Calcium": ["EPA 200.5", "EPA 200.7", "SM 3111 B-1999 ", "SM 3120 B-1999", "SM 3500-Ca B-1997"],
