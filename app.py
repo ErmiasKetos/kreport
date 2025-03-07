@@ -92,8 +92,34 @@ analyte_to_methods = {
 #####################################
 PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control Data"]
 
+# Initialize current_page in session_state if not present
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
+
+# Ensure cover_data is initialized with all keys
+default_date = datetime.date.today().strftime("%m/%d/%Y")
+if "cover_data" not in st.session_state or not st.session_state["cover_data"]:
+    st.session_state["cover_data"] = {
+        "lab_name": "KELP Laboratory",
+        "work_order": "",
+        "project_name": "",
+        "client_name": "",
+        "street": "",
+        "city": "",
+        "state": "",
+        "zip": "",
+        "country": "",
+        "phone": "",
+        "date_samples_received": default_date,
+        "date_reported": default_date,
+        "analysis_type": "Environmental",
+        "coc_number": generate_coc_number(),
+        "po_number": generate_po_number(),
+        "report_title": "CERTIFICATE OF ANALYSIS",
+        "comments": "None",
+        "signatory_name": "",
+        "signatory_title": "Lab Manager",
+    }
 
 def render_navbar():
     st.markdown(
@@ -137,7 +163,6 @@ def render_navbar():
     
     cols = st.columns(len(PAGES))
     for i, page in enumerate(PAGES):
-        # Each button key includes the page index and current_page for uniqueness.
         if cols[i].button(page, key=f"nav_{i}_{st.session_state.current_page}"):
             st.session_state.current_page = i
 
@@ -642,10 +667,81 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     return buffer.read()
 
 if __name__ == "__main__":
-    # Initialize current page if not set
-    if "current_page" not in st.session_state:
-        st.session_state.current_page = 0
-    # Initialize cover data if not set
-    if "cover_data" not in st.session_state:
-        st.session_state["cover_data"] = {}
+    def main_app():
+        st.title("Water Quality COA (Auto-Generated Fields)")
+        render_navbar()
+    
+        # Global fixed values
+        lab_name = "KELP Laboratory"
+        lab_address = "520 Mercury Dr, Sunnyvale, CA 94085"
+        lab_email = "kelp@ketoslab.com"
+        lab_phone = "(408) 461-8860"
+    
+        auto_work_order = "WO" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
+        auto_coc_number = generate_coc_number()
+        auto_po_number = generate_po_number()
+        default_date = datetime.date.today().strftime("%m/%d/%Y")
+    
+        if "cover_data" not in st.session_state:
+            st.session_state["cover_data"] = {
+                "lab_name": lab_name,
+                "work_order": auto_work_order,
+                "project_name": "",
+                "client_name": "",
+                "street": "",
+                "city": "",
+                "state": "",
+                "zip": "",
+                "country": "",
+                "phone": "",
+                "date_samples_received": default_date,
+                "date_reported": default_date,
+                "analysis_type": "Environmental",
+                "coc_number": auto_coc_number,
+                "po_number": auto_po_number,
+                "report_title": "CERTIFICATE OF ANALYSIS",
+                "comments": "None",
+                "signatory_name": "",
+                "signatory_title": "Lab Manager",
+            }
+    
+        page_container = st.empty()
+    
+        if st.session_state.current_page == 0:
+            with page_container:
+                render_cover_page()
+        elif st.session_state.current_page == 1:
+            with page_container:
+                render_sample_summary_page()
+        elif st.session_state.current_page == 2:
+            with page_container:
+                render_analytical_results_page()
+        elif st.session_state.current_page == 3:
+            with page_container:
+                render_quality_control_page()
+    
+        if st.session_state.current_page == len(PAGES) - 1:
+            st.markdown("### All pages completed.")
+            if st.button("Generate PDF and Download", key="generate_pdf"):
+                pdf_bytes = create_pdf_report(
+                    lab_name=lab_name,
+                    lab_address=lab_address,
+                    lab_email=lab_email,
+                    lab_phone=lab_phone,
+                    cover_data=st.session_state["cover_data"],
+                    page1_data=st.session_state["page1_data"],
+                    page2_data=st.session_state["page2_data"],
+                    page3_data=st.session_state["page3_data"]
+                )
+                st.download_button(
+                    "Download PDF",
+                    data=pdf_bytes,
+                    file_name="MultiPage_COA_withCover.pdf",
+                    mime="application/pdf",
+                    key="download_pdf"
+                )
+    
+    main_app()
+    
+if __name__ == "__main__":
     main_app()
