@@ -229,6 +229,7 @@ def main():
     selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
     selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
     
+
     st.subheader("Add Analytical Result (Page 2)")
     with st.form("page2_results_form", clear_on_submit=True):
         st.write(f"Selected Analyte: {selected_parameter}")
@@ -236,10 +237,12 @@ def main():
         lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"]["samples"]]
         if lab_ids:
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
+            # Auto-populate the corresponding Sample ID (assuming one sample per lab ID)
+            sample_id_val = next((s["sample_id"] for s in st.session_state["page1_data"]["samples"] if s["lab_id"] == result_lab_id), "")
+            st.text(f"Corresponding Sample ID: {sample_id_val}")
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-        # Capture Sample ID for grouping
-        result_sample_id = st.text_input("Sample ID", value="")
+            sample_id_val = ""
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
@@ -255,7 +258,7 @@ def main():
             if result_lab_id:
                 st.session_state["page2_data"]["results"].append({
                     "lab_id": result_lab_id,
-                    "sample_id": result_sample_id,
+                    "sample_id": sample_id_val,
                     "parameter": selected_parameter,
                     "analysis": selected_method,
                     "df": dilution_factor,
@@ -264,6 +267,7 @@ def main():
                     "result": result_value,
                     "unit": unit_value
                 })
+
                 
     if st.session_state["page2_data"]["results"]:
         st.write("**Current Analytical Results (Page 2):**")
