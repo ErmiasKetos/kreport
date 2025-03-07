@@ -151,22 +151,17 @@ def main():
     #####################################
     # 1. PAGE 1: SAMPLE SUMMARY
     #####################################
+    # Use values from cover_data for Report ID, Report Date, Client Name, and Client Address.
     if "page1_data" not in st.session_state:
         st.session_state["page1_data"] = {
-            "report_id": "1064819",
+            "report_id": "".join(random.choices("0123456789", k=7)),  # 7-digit numerical Report ID
             "report_date": default_date,
-            "client_name": "City of Atlantic Beach",
-            "client_address": "902 Assisi Lane, Atlantic Beach, FL 32233",
+            "client_name": st.session_state["cover_data"]["client_name"],
+            "client_address": st.session_state["cover_data"]["address_line"],
             "project_id": "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4)),
             "samples": []
         }
     st.header("Page 1: SAMPLE SUMMARY")
-    st.subheader("Sample Summary Info (Optional Edits)")
-    st.session_state["page1_data"]["report_id"] = st.text_input("Report ID (Page 1)", value=st.session_state["page1_data"]["report_id"])
-    st.session_state["page1_data"]["report_date"] = st.text_input("Report Date (Page 1)", value=st.session_state["page1_data"]["report_date"])
-    st.session_state["page1_data"]["client_name"] = st.text_input("Client Name (Page 1)", value=st.session_state["page1_data"]["client_name"])
-    st.session_state["page1_data"]["client_address"] = st.text_input("Client Address (Page 1)", value=st.session_state["page1_data"]["client_address"])
-    
     st.subheader("Add Water Sample")
     with st.form("page1_samples_form", clear_on_submit=True):
         sample_lab_id = st.text_input("Lab ID (Leave blank for auto-gen)", value="")
@@ -184,15 +179,14 @@ def main():
                 "date_collected": sample_date_collected,
                 "date_received": sample_date_received
             })
-    
+        
+    st.write("**Current Water Samples (Page 1):**")
     if st.session_state["page1_data"]["samples"]:
-        st.write("**Current Water Samples (Page 1):**")
         for i, s_ in enumerate(st.session_state["page1_data"]["samples"], 1):
             st.write(f"{i}. Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, Collected: {s_['date_collected']}, Received: {s_['date_received']}")
     else:
         st.info("No water samples added yet.")
-    
-    st.markdown("---")
+
     
     #####################################
     # 2. PAGE 2: ANALYTICAL RESULTS
@@ -280,10 +274,13 @@ def main():
             qc_pql = st.text_input("PQL", value="0.005")
         with col4:
             qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
+            
+        # New field: Method Blank Conc.
+        qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")    
+        
         if st.form_submit_button("Add QC Entry"):
-            # Auto-generate QC Batch and Method Blank:
-            qc_batch = generate_qc_batch()         # e.g., "ABC123"
-            method_blank = generate_method_blank()   # e.g., "AB12345"
+            qc_batch = generate_qc_batch()         # auto-generate, e.g., "ABC123"
+            method_blank = generate_method_blank()   # auto-generate, e.g., "AB12345"
             st.session_state["page3_data"]["qc_entries"].append({
                 "qc_batch": qc_batch,
                 "qc_method": qc_selected_method,
@@ -291,27 +288,22 @@ def main():
                 "unit": qc_unit,
                 "mdl": qc_mdl,
                 "pql": qc_pql,
-                "method_blank": method_blank,
-                "lab_qualifier": qc_lab_qualifier
+                "blank_result": qc_method_blank_conc,  # now capture the Method Blank Conc.
+                "lab_qualifier": qc_lab_qualifier,
+                "method_blank": method_blank  # auto-generated Method Blank (if still needed)
             })
     
     if st.session_state["page3_data"]["qc_entries"]:
         st.write("**Current QC Data (Page 3):**")
         for i, qc_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
             st.write(
-                f"{i}. QC Batch: {qc_['qc_batch']}, "
-                f"Method: {qc_['qc_method']}, "
-                f"Parameter: {qc_['parameter']}, "
-                f"Unit: {qc_['unit']}, "
-                f"MDL: {qc_['mdl']}, "
-                f"PQL: {qc_['pql']}, "
-                f"Method Blank: {qc_['method_blank']}, "
-                f"Lab Qualifier: {qc_['lab_qualifier']}"
+                f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, Parameter: {qc_['parameter']}, "
+                f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, "
+                f"Method Blank Conc.: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}"
             )
     else:
         st.info("No QC data entries yet.")
-    
-    st.markdown("---")
+
     
     #####################################
     # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
@@ -542,7 +534,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     
     for lab_id, results_list in results_by_lab_id.items():
         pdf.set_font("DejaVu", "B", 12)
-        pdf.cell(0, 8, f"Analytical Results for Lab ID: {lab_id}", ln=True, align="L")
+        pdf.cell(0, 8, f"Analytical Results for Lab ID: {lab_id}, {sample_id}", ln=True, align="L")
         pdf.ln(2)
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
