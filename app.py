@@ -406,9 +406,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
 
     # Insert the KELP logo at the top-left
     try:
-        pdf.image("kelp_logo.png", x=logo_x, y=logo_y, w=logo_width)
+        pdf.image("kelp_logo.png", x=50, y=30, w=60)
     except Exception as e:
-        pdf.set_xy(logo_x, logo_y)
         pdf.set_font("DejaVu", "B", 12)
         pdf.cell(50, 10, "[LOGO]", border=0, ln=0, align="L")
     
