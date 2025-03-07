@@ -401,19 +401,17 @@ def main():
     render_navbar()
 
     # Decide page
+
     page_idx = st.session_state.current_page
     if page_idx == 0:
-        with page_spot:
-            render_cover_page()
+        render_cover_page()
     elif page_idx == 1:
-        with page_spot:
-            render_sample_summary_page()
+        render_sample_summary_page()
     elif page_idx == 2:
-        with page_spot:
-            render_analytical_results_page()
+        render_analytical_results_page()
     elif page_idx == 3:
-        with page_spot:
-            render_quality_control_page()
+        render_quality_control_page()
+
 
     # If last page, show generate
     if page_idx == len(PAGES)-1:
