@@ -96,7 +96,6 @@ if "current_page" not in st.session_state:
     st.session_state.current_page = 0
 
 def render_navbar():
-    # CSS for colorful navigation buttons and progress bar
     st.markdown(
         """
         <style>
@@ -129,7 +128,6 @@ def render_navbar():
         """,
         unsafe_allow_html=True,
     )
-    # Render progress bar based on current page
     progress = int((st.session_state.current_page + 1) / len(PAGES) * 100)
     st.markdown(f"""
     <div class="progress-bar-container">
@@ -205,7 +203,7 @@ def main():
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
     
-    # Combine address fields into one address_line for PDF generation
+    # Combine address fields into one for the PDF
     st.session_state["cover_data"]["address_line"] = (
         st.session_state["cover_data"]["street"] + ", " +
         st.session_state["cover_data"]["city"] + ", " +
@@ -228,8 +226,7 @@ def main():
     st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
     
     if st.session_state.current_page == 0:
-        st.markdown("### Cover Page Preview")
-        st.write(st.session_state["cover_data"])
+        # Only one page is visible at a time; no preview is shown.
         render_nav_buttons()
     
     #####################################
@@ -252,7 +249,7 @@ def main():
             matrix = st.text_input("Matrix", value="Water")
             sample_date_collected = st.text_input("Date Collected", value=default_date)
             sample_date_received = st.text_input("Date Received", value=default_date)
-            if st.form_submit_button("Add Water Sample", key="add_sample"):
+            if st.form_submit_button("Add Water Sample"):
                 if not sample_lab_id.strip():
                     sample_lab_id = generate_id()
                 st.session_state["page1_data"]["samples"].append({
@@ -313,7 +310,7 @@ def main():
                 result_value = st.text_input("Result", value="ND")
             unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"], key="unit")
             
-            if st.form_submit_button("Add Analytical Result", key="add_analytical"):
+            if st.form_submit_button("Add Analytical Result"):
                 if result_lab_id:
                     st.session_state["page2_data"]["results"].append({
                         "lab_id": result_lab_id,
@@ -355,7 +352,7 @@ def main():
                 qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
             qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
             
-            if st.form_submit_button("Add QC Entry", key="add_qc"):
+            if st.form_submit_button("Add QC Entry"):
                 qc_batch = generate_qc_batch()
                 method_blank = generate_method_blank()
                 st.session_state["page3_data"]["qc_entries"].append({
@@ -381,10 +378,10 @@ def main():
             st.info("No QC data entries yet.")
         render_nav_buttons()
     
-    # Final step: Generate PDF when all pages are complete
+    # Final step: Generate PDF on last page
     if st.session_state.current_page == len(PAGES)-1:
         st.markdown("### All pages completed.")
-        if st.button("Generate PDF and Download", key="generate_pdf"):
+        if st.button("Generate PDF and Download"):
             pdf_bytes = create_pdf_report(
                 lab_name=lab_name,
                 lab_address=lab_address,
@@ -399,8 +396,7 @@ def main():
                 "Download PDF",
                 data=pdf_bytes,
                 file_name="MultiPage_COA_withCover.pdf",
-                mime="application/pdf",
-                key="download_pdf"
+                mime="application/pdf"
             )
 
 #####################################
@@ -551,15 +547,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
     
-    # Group results by a tuple (lab_id, sample_id)
+    # Group results by (lab_id, sample_id)
     results_by_lab = defaultdict(list)
     for r_ in page2_data["results"]:
         key = (r_["lab_id"], r_.get("sample_id", ""))
         results_by_lab[key].append(r_)
     
-    # Define column widths so that total width = 180 mm
-    widths2 = [40, 35, 20, 20, 20, 30, 15]
-    
+    widths2 = [40, 35, 20, 20, 20, 30, 15]  # total = 180
     for (lab_id, sample_id), results_list in results_by_lab.items():
         header_text = f"Analytical Results for Lab ID: {lab_id}"
         if sample_id:
@@ -600,7 +594,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     for qc_ in page3_data["qc_entries"]:
         qc_by_method[qc_["qc_method"]].append(qc_)
     
-    widths_qc = [45, 20, 20, 20, 40, 35]
+    widths_qc = [45, 20, 20, 20, 40, 35]  # total = 180
     for method, qcs in qc_by_method.items():
         pdf.set_font("DejaVu", "B", 10)
         pdf.cell(0, 5, f"QC Batch: {qcs[0]['qc_batch']}", ln=True, align="L")
