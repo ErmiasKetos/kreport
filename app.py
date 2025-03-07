@@ -387,33 +387,32 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     # ---------------------------
     # 0. COVER PAGE
     # ---------------------------
-    
     pdf.add_page()
+    
 
-    # Insert the KELP logo on the right side above lab details
-    logo_width = 70
-    margin_right = 15
+    # Insert the KELP logo at the top-left
     try:
-        pdf.image("kelp_logo.png", x=220 - logo_width - margin_right, y=5, w=logo_width)
+        pdf.image("kelp_logo.png", x=1, y=1, w=70)
     except Exception as e:
-        pdf.set_font("DejaVu", "", 8)
-        pdf.cell(0, 10, "[Logo not found]", align="R")
-
-    # Move below logo
+        pdf.set_font("DejaVu", "", 10)
+        pdf.cell(0, 10, "[Logo not found]", ln=True, align="L")
+    
+    # Move down to leave space after the logo
     pdf.set_y(35)
-
+    
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
-    pdf.ln(10)
-
+    pdf.ln(4)
+                          
     pdf.set_font("DejaVu", "B", 12)
-    #pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_phone}", ln=True, align="R")
     pdf.cell(0, 5, f"Email: {lab_email}", ln=True, align="R")
-    pdf.cell(0, 5, f"Phone: {lab_phone}", ln=True, align="R")
-    pdf.ln(10)
-
+    pdf.ln(5)
+    
     left_width = effective_width / 2
     right_width = effective_width / 2
 
@@ -422,7 +421,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.set_fill_color(240, 240, 240)
         pdf.cell(left_width, 6, label_text, border=1, ln=0, align="L", fill=True)
         pdf.set_font("DejaVu", "", 10)
-        pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L")
+        pdf.set_fill_color(255, 255, 255)
+        pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L", fill=True)
 
     table_row("Work Order:", cover_data["work_order"])
     table_row("Project:", cover_data["project_name"])
