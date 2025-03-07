@@ -416,12 +416,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_font("DejaVu", "B", 12)
     pdf.cell(0, 5, lab_name, ln=True, align="R")
 
-    pdf.set_x(120)
+    pdf.set_x(140)
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(0, 5, lab_address, ln=True, align="R")
     pdf.cell(0, 5, f"Email: {lab_phone}", ln=True, align="R")
     pdf.cell(0, 5, f"Email: {lab_email}", ln=True, align="R")
-    pdf.ln(20)
+    pdf.ln(25)
     
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
