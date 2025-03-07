@@ -137,6 +137,7 @@ def render_navbar():
     
     cols = st.columns(len(PAGES))
     for i, page in enumerate(PAGES):
+        # Use unique keys by including the page index in the key
         if cols[i].button(page, key=f"nav_{i}_{st.session_state.current_page}"):
             st.session_state.current_page = i
 
@@ -150,7 +151,184 @@ def render_nav_buttons():
             st.session_state.current_page += 1
 
 #####################################
-# MAIN APP
+# PAGE RENDERING FUNCTIONS
+#####################################
+def render_cover_page():
+    st.header("Cover Page Fields (Optional Edits)")
+    st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
+    st.session_state["cover_data"]["client_name"] = st.text_input("Client Name", value=st.session_state["cover_data"]["client_name"])
+    st.session_state["cover_data"]["street"] = st.text_input("Street Address", value=st.session_state["cover_data"].get("street", ""))
+    st.session_state["cover_data"]["city"] = st.text_input("City", value=st.session_state["cover_data"].get("city", ""))
+    st.session_state["cover_data"]["state"] = st.text_input("State/Province/Region", value=st.session_state["cover_data"].get("state", ""))
+    st.session_state["cover_data"]["zip"] = st.text_input("Postal/Zip Code", value=st.session_state["cover_data"].get("zip", ""))
+    st.session_state["cover_data"]["country"] = st.text_input("Country", value=st.session_state["cover_data"].get("country", ""))
+    st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
+    st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
+    
+    st.session_state["cover_data"]["address_line"] = (
+        st.session_state["cover_data"]["street"] + ", " +
+        st.session_state["cover_data"]["city"] + ", " +
+        st.session_state["cover_data"]["state"] + " " +
+        st.session_state["cover_data"]["zip"] + ", " +
+        st.session_state["cover_data"]["country"]
+    )
+    
+    sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
+    try:
+        dt = datetime.datetime.strptime(st.session_state["cover_data"]["date_samples_received"], "%m/%d/%Y")
+        date_str = dt.strftime("%Y%m%d")
+    except:
+        date_str = datetime.date.today().strftime("%Y%m%d")
+    st.session_state["cover_data"]["work_order"] = f"{sample_type}-{date_str}-0001"
+    
+    st.subheader("Lab Manager Signatory")
+    st.session_state["cover_data"]["signatory_name"] = st.text_input("Lab Manager Name", value=st.session_state["cover_data"]["signatory_name"])
+    st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
+    
+    render_nav_buttons()
+
+def render_sample_summary_page():
+    if "page1_data" not in st.session_state:
+        st.session_state["page1_data"] = {
+            "report_id": "".join(random.choices("0123456789", k=7)),
+            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
+            "client_name": st.session_state["cover_data"]["client_name"],
+            "client_address": st.session_state["cover_data"]["address_line"],
+            "project_id": "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4)),
+            "samples": []
+        }
+    st.header("Page 1: SAMPLE SUMMARY")
+    with st.form("page1_samples_form", clear_on_submit=True):
+        sample_lab_id = st.text_input("Lab ID (Leave blank for auto-gen)", value="")
+        sample_id = st.text_input("Sample ID", value="")
+        matrix = st.text_input("Matrix", value="Water")
+        sample_date_collected = st.text_input("Date Collected", value=datetime.date.today().strftime("%m/%d/%Y"))
+        sample_date_received = st.text_input("Date Received", value=datetime.date.today().strftime("%m/%d/%Y"))
+        if st.form_submit_button("Add Water Sample"):
+            if not sample_lab_id.strip():
+                sample_lab_id = generate_id()
+            st.session_state["page1_data"]["samples"].append({
+                "lab_id": sample_lab_id,
+                "sample_id": sample_id,
+                "matrix": matrix,
+                "date_collected": sample_date_collected,
+                "date_received": sample_date_received
+            })
+    st.write("**Current Water Samples (Page 1):**")
+    if st.session_state["page1_data"]["samples"]:
+        for i, s_ in enumerate(st.session_state["page1_data"]["samples"], 1):
+            st.write(f"{i}. Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, Collected: {s_['date_collected']}, Received: {s_['date_received']}")
+    else:
+        st.info("No water samples added yet.")
+    render_nav_buttons()
+
+def render_analytical_results_page():
+    if "page2_data" not in st.session_state:
+        st.session_state["page2_data"] = {
+            "workorder_name": st.session_state["cover_data"]["work_order"],
+            "global_analysis_date": datetime.date.today().strftime("%m/%d/%Y") + " 10:00",
+            "results": [],
+            "report_id": st.session_state["page1_data"]["report_id"],
+            "report_date": st.session_state["page1_data"]["report_date"]
+        }
+    st.header("Page 2: ANALYTICAL RESULTS")
+    st.text(f"Work Order: {st.session_state['page2_data']['workorder_name']}")
+    st.text(f"Report ID: {st.session_state['page2_data']['report_id']}")
+    st.text(f"Report Date: {st.session_state['page2_data']['report_date']}")
+    st.text(f"Global Analysis Date: {st.session_state['page2_data']['global_analysis_date']}")
+    
+    selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
+    selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
+    
+    with st.form("page2_results_form", clear_on_submit=True):
+        st.write(f"Selected Analyte: {selected_parameter}")
+        st.write(f"Selected Method: {selected_method}")
+        lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"]["samples"]]
+        if lab_ids:
+            result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
+            sample_id_val = next((s["sample_id"] for s in st.session_state["page1_data"]["samples"] if s["lab_id"] == result_lab_id), "")
+            st.text(f"Corresponding Sample ID: {sample_id_val}")
+        else:
+            result_lab_id = st.text_input("Lab ID", value="")
+            sample_id_val = ""
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            dilution_factor = st.text_input("DF", value="")
+        with col2:
+            mdl_value = st.text_input("MDL", value="")
+        with col3:
+            pql_value = st.text_input("PQL", value="")
+        with col4:
+            result_value = st.text_input("Result", value="ND")
+        unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"], key="unit")
+        
+        if st.form_submit_button("Add Analytical Result"):
+            if result_lab_id:
+                st.session_state["page2_data"]["results"].append({
+                    "lab_id": result_lab_id,
+                    "sample_id": sample_id_val,
+                    "parameter": selected_parameter,
+                    "analysis": selected_method,
+                    "df": dilution_factor,
+                    "mdl": mdl_value,
+                    "pql": pql_value,
+                    "result": result_value,
+                    "unit": unit_value
+                })
+    st.write("**Current Analytical Results (Page 2):**")
+    if st.session_state["page2_data"]["results"]:
+        for i, r_ in enumerate(st.session_state["page2_data"]["results"], 1):
+            st.write(f"{i}. Lab ID: {r_['lab_id']}, Sample ID: {r_.get('sample_id','')}, Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
+    else:
+        st.info("No analytical results added yet.")
+    render_nav_buttons()
+
+def render_quality_control_page():
+    if "page3_data" not in st.session_state:
+        st.session_state["page3_data"] = {"qc_entries": []}
+    st.header("Page 3: QUALITY CONTROL DATA")
+    qc_selected_analyte = st.selectbox("QC Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="qc_analyte")
+    qc_selected_method = st.selectbox("QC Analysis (Method)", options=analyte_to_methods[qc_selected_analyte], key="qc_method")
+    with st.form("page3_qc_form", clear_on_submit=True):
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            qc_unit = st.text_input("Unit", value="mg/L")
+        with col2:
+            qc_mdl = st.text_input("MDL", value="0.0010")
+        with col3:
+            qc_pql = st.text_input("PQL", value="0.005")
+        with col4:
+            qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
+        qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
+        
+        if st.form_submit_button("Add QC Entry"):
+            qc_batch = generate_qc_batch()
+            method_blank = generate_method_blank()
+            st.session_state["page3_data"]["qc_entries"].append({
+                "qc_batch": qc_batch,
+                "qc_method": qc_selected_method,
+                "parameter": qc_selected_analyte,
+                "unit": qc_unit,
+                "mdl": qc_mdl,
+                "pql": qc_pql,
+                "blank_result": qc_method_blank_conc,
+                "lab_qualifier": qc_lab_qualifier,
+                "method_blank": method_blank
+            })
+    st.write("**Current QC Data (Page 3):**")
+    if st.session_state["page3_data"]["qc_entries"]:
+        for i, qc_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
+            st.write(
+                f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, Parameter: {qc_['parameter']}, "
+                f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, Method Blank Conc.: {qc_['blank_result']}, "
+                f"Lab Qualifier: {qc_['lab_qualifier']}"
+            )
+    else:
+        st.info("No QC data entries yet.")
+    render_nav_buttons()
+
+#####################################
+# MAIN APP - Single Page Display
 #####################################
 def main():
     st.title("Water Quality COA (Auto-Generated Fields)")
@@ -167,9 +345,7 @@ def main():
     auto_po_number = generate_po_number()
     default_date = datetime.date.today().strftime("%m/%d/%Y")
     
-    #####################################
-    # Cover Page Data (Page 0)
-    #####################################
+    # Initialize Cover Page Data if not present
     if "cover_data" not in st.session_state:
         st.session_state["cover_data"] = {
             "lab_name": lab_name,
@@ -192,192 +368,26 @@ def main():
             "signatory_name": "",
             "signatory_title": "Lab Manager",
         }
-    st.header("Cover Page Fields (Optional Edits)")
-    st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
-    st.session_state["cover_data"]["client_name"] = st.text_input("Client Name", value=st.session_state["cover_data"]["client_name"])
-    st.session_state["cover_data"]["street"] = st.text_input("Street Address", value=st.session_state["cover_data"].get("street", ""))
-    st.session_state["cover_data"]["city"] = st.text_input("City", value=st.session_state["cover_data"].get("city", ""))
-    st.session_state["cover_data"]["state"] = st.text_input("State/Province/Region", value=st.session_state["cover_data"].get("state", ""))
-    st.session_state["cover_data"]["zip"] = st.text_input("Postal/Zip Code", value=st.session_state["cover_data"].get("zip", ""))
-    st.session_state["cover_data"]["country"] = st.text_input("Country", value=st.session_state["cover_data"].get("country", ""))
-    st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
-    st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
     
-    st.session_state["cover_data"]["address_line"] = (
-        st.session_state["cover_data"]["street"] + ", " +
-        st.session_state["cover_data"]["city"] + ", " +
-        st.session_state["cover_data"]["state"] + " " +
-        st.session_state["cover_data"]["zip"] + ", " +
-        st.session_state["cover_data"]["country"]
-    )
+    # Create a placeholder for page content
+    page_container = st.empty()
     
-    sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
-    if "work_order" not in st.session_state["cover_data"] or st.session_state["cover_data"]["work_order"] == auto_work_order:
-        try:
-            dt = datetime.datetime.strptime(st.session_state["cover_data"]["date_samples_received"], "%m/%d/%Y")
-            date_str = dt.strftime("%Y%m%d")
-        except:
-            date_str = datetime.date.today().strftime("%Y%m%d")
-        st.session_state["cover_data"]["work_order"] = f"{sample_type}-{date_str}-0001"
-    
-    st.subheader("Lab Manager Signatory")
-    st.session_state["cover_data"]["signatory_name"] = st.text_input("Lab Manager Name", value=st.session_state["cover_data"]["signatory_name"])
-    st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
-    
+    # Render content for only the current page
     if st.session_state.current_page == 0:
-        render_nav_buttons()
+        with page_container:
+            render_cover_page()
+    elif st.session_state.current_page == 1:
+        with page_container:
+            render_sample_summary_page()
+    elif st.session_state.current_page == 2:
+        with page_container:
+            render_analytical_results_page()
+    elif st.session_state.current_page == 3:
+        with page_container:
+            render_quality_control_page()
     
-    #####################################
-    # Page 1: SAMPLE SUMMARY
-    #####################################
-    if "page1_data" not in st.session_state:
-        st.session_state["page1_data"] = {
-            "report_id": "".join(random.choices("0123456789", k=7)),
-            "report_date": default_date,
-            "client_name": st.session_state["cover_data"]["client_name"],
-            "client_address": st.session_state["cover_data"]["address_line"],
-            "project_id": "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4)),
-            "samples": []
-        }
-    if st.session_state.current_page == 1:
-        st.header("Page 1: SAMPLE SUMMARY")
-        with st.form("page1_samples_form", clear_on_submit=True):
-            sample_lab_id = st.text_input("Lab ID (Leave blank for auto-gen)", value="")
-            sample_id = st.text_input("Sample ID", value="")
-            matrix = st.text_input("Matrix", value="Water")
-            sample_date_collected = st.text_input("Date Collected", value=default_date)
-            sample_date_received = st.text_input("Date Received", value=default_date)
-            if st.form_submit_button("Add Water Sample"):
-                if not sample_lab_id.strip():
-                    sample_lab_id = generate_id()
-                st.session_state["page1_data"]["samples"].append({
-                    "lab_id": sample_lab_id,
-                    "sample_id": sample_id,
-                    "matrix": matrix,
-                    "date_collected": sample_date_collected,
-                    "date_received": sample_date_received
-                })
-        st.write("**Current Water Samples (Page 1):**")
-        if st.session_state["page1_data"]["samples"]:
-            for i, s_ in enumerate(st.session_state["page1_data"]["samples"], 1):
-                st.write(f"{i}. Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, Collected: {s_['date_collected']}, Received: {s_['date_received']}")
-        else:
-            st.info("No water samples added yet.")
-        render_nav_buttons()
-    
-    #####################################
-    # Page 2: ANALYTICAL RESULTS
-    #####################################
-    if "page2_data" not in st.session_state:
-        st.session_state["page2_data"] = {
-            "workorder_name": st.session_state["cover_data"]["work_order"],
-            "global_analysis_date": default_date + " 10:00",
-            "results": [],
-            "report_id": st.session_state["page1_data"]["report_id"],
-            "report_date": st.session_state["page1_data"]["report_date"]
-        }
-    if st.session_state.current_page == 2:
-        st.header("Page 2: ANALYTICAL RESULTS")
-        st.text(f"Work Order: {st.session_state['page2_data']['workorder_name']}")
-        st.text(f"Report ID: {st.session_state['page2_data']['report_id']}")
-        st.text(f"Report Date: {st.session_state['page2_data']['report_date']}")
-        st.text(f"Global Analysis Date: {st.session_state['page2_data']['global_analysis_date']}")
-        
-        selected_parameter = st.selectbox("Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="analyte")
-        selected_method = st.selectbox("Analysis (Method)", options=analyte_to_methods[selected_parameter], key="method")
-        
-        with st.form("page2_results_form", clear_on_submit=True):
-            st.write(f"Selected Analyte: {selected_parameter}")
-            st.write(f"Selected Method: {selected_method}")
-            lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"]["samples"]]
-            if lab_ids:
-                result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
-                sample_id_val = next((s["sample_id"] for s in st.session_state["page1_data"]["samples"] if s["lab_id"] == result_lab_id), "")
-                st.text(f"Corresponding Sample ID: {sample_id_val}")
-            else:
-                result_lab_id = st.text_input("Lab ID", value="")
-                sample_id_val = ""
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                dilution_factor = st.text_input("DF", value="")
-            with col2:
-                mdl_value = st.text_input("MDL", value="")
-            with col3:
-                pql_value = st.text_input("PQL", value="")
-            with col4:
-                result_value = st.text_input("Result", value="ND")
-            unit_value = st.selectbox("Unit", ["mg/L", "µg/L", "µS/cm", "none"], key="unit")
-            
-            if st.form_submit_button("Add Analytical Result"):
-                if result_lab_id:
-                    st.session_state["page2_data"]["results"].append({
-                        "lab_id": result_lab_id,
-                        "sample_id": sample_id_val,
-                        "parameter": selected_parameter,
-                        "analysis": selected_method,
-                        "df": dilution_factor,
-                        "mdl": mdl_value,
-                        "pql": pql_value,
-                        "result": result_value,
-                        "unit": unit_value
-                    })
-        st.write("**Current Analytical Results (Page 2):**")
-        if st.session_state["page2_data"]["results"]:
-            for i, r_ in enumerate(st.session_state["page2_data"]["results"], 1):
-                st.write(f"{i}. Lab ID: {r_['lab_id']}, Sample ID: {r_.get('sample_id','')}, Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
-        else:
-            st.info("No analytical results added yet.")
-        render_nav_buttons()
-    
-    #####################################
-    # Page 3: QUALITY CONTROL DATA
-    #####################################
-    if "page3_data" not in st.session_state:
-        st.session_state["page3_data"] = {"qc_entries": []}
-    if st.session_state.current_page == 3:
-        st.header("Page 3: QUALITY CONTROL DATA")
-        qc_selected_analyte = st.selectbox("QC Parameter (Analyte)", options=list(analyte_to_methods.keys()), key="qc_analyte")
-        qc_selected_method = st.selectbox("QC Analysis (Method)", options=analyte_to_methods[qc_selected_analyte], key="qc_method")
-        with st.form("page3_qc_form", clear_on_submit=True):
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                qc_unit = st.text_input("Unit", value="mg/L")
-            with col2:
-                qc_mdl = st.text_input("MDL", value="0.0010")
-            with col3:
-                qc_pql = st.text_input("PQL", value="0.005")
-            with col4:
-                qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
-            qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
-            
-            if st.form_submit_button("Add QC Entry"):
-                qc_batch = generate_qc_batch()
-                method_blank = generate_method_blank()
-                st.session_state["page3_data"]["qc_entries"].append({
-                    "qc_batch": qc_batch,
-                    "qc_method": qc_selected_method,
-                    "parameter": qc_selected_analyte,
-                    "unit": qc_unit,
-                    "mdl": qc_mdl,
-                    "pql": qc_pql,
-                    "blank_result": qc_method_blank_conc,
-                    "lab_qualifier": qc_lab_qualifier,
-                    "method_blank": method_blank
-                })
-        st.write("**Current QC Data (Page 3):**")
-        if st.session_state["page3_data"]["qc_entries"]:
-            for i, qc_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
-                st.write(
-                    f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, Parameter: {qc_['parameter']}, "
-                    f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, Method Blank Conc.: {qc_['blank_result']}, "
-                    f"Lab Qualifier: {qc_['lab_qualifier']}"
-                )
-        else:
-            st.info("No QC data entries yet.")
-        render_nav_buttons()
-    
-    # Final step: Generate PDF on last page
-    if st.session_state.current_page == len(PAGES)-1:
+    # Final step: Generate PDF on last page (only shown when on page 3)
+    if st.session_state.current_page == len(PAGES) - 1:
         st.markdown("### All pages completed.")
         if st.button("Generate PDF and Download", key="generate_pdf"):
             pdf_bytes = create_pdf_report(
@@ -519,7 +529,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     
     pdf.set_font("DejaVu", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]  # total = 180
+    widths = [30, 40, 30, 40, 40]
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -546,13 +556,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
     
-    # Group results by (lab_id, sample_id)
     results_by_lab = defaultdict(list)
     for r_ in page2_data["results"]:
         key = (r_["lab_id"], r_.get("sample_id", ""))
         results_by_lab[key].append(r_)
     
-    widths2 = [40, 35, 20, 20, 20, 30, 15]  # total = 180
+    widths2 = [40, 35, 20, 20, 20, 30, 15]
     for (lab_id, sample_id), results_list in results_by_lab.items():
         header_text = f"Analytical Results for Lab ID: {lab_id}"
         if sample_id:
@@ -593,7 +602,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     for qc_ in page3_data["qc_entries"]:
         qc_by_method[qc_["qc_method"]].append(qc_)
     
-    widths_qc = [45, 20, 20, 20, 40, 35]  # total = 180
+    widths_qc = [45, 20, 20, 20, 40, 35]
     for method, qcs in qc_by_method.items():
         pdf.set_font("DejaVu", "B", 10)
         pdf.cell(0, 5, f"QC Batch: {qcs[0]['qc_batch']}", ln=True, align="L")
