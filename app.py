@@ -388,24 +388,17 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     # 0. COVER PAGE
     # ---------------------------
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-
-    # Effective width calculation (A4 width minus margins)
-    effective_width = pdf.w - 2 * pdf.l_margin
     
 
     # Insert the KELP logo at the top-left
-    logo_width = 40  # Adjust width as desired
-    logo_height = 20  # Adjust height as needed
-    logo_path = "kelp_logo.png"
     try:
-        # Position logo to the right margin
-        pdf.image(logo_path, x=pdf.w - pdf.r_margin - logo_path.width, y=15, w=logo_path.width)
-    except:
-        pdf.cell(0, 10, "[Logo not found]", ln=True, align="R")
+        pdf.image("kelp_logo.png", x=1, y=1, w=70)
+    except Exception as e:
+        pdf.set_font("DejaVu", "", 10)
+        pdf.cell(0, 10, "[Logo not found]", ln=True, align="L")
     
     # Move down to leave space after the logo
-    pdf.set_y(15 + logo_path.height + 5)
+    pdf.set_y(35)
     
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
