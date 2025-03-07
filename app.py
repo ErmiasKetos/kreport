@@ -398,7 +398,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.cell(0, 10, "[Logo not found]", ln=True, align="L")
     
     # Move down to leave space after the logo
-    pdf.set_y(5)
+    pdf.set_y(35)
     
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
