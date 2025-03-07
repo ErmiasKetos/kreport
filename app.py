@@ -396,6 +396,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
 
     # Insert the KELP logo at the top-left
     logo_width = 40  # Adjust width as desired
+    logo_height = 20  # Adjust height as needed
     logo_path = "kelp_logo.png"
     try:
         # Position logo to the right margin
