@@ -366,26 +366,17 @@ class MyPDF(FPDF):
     pass
 
 
-def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
-                      cover_data, page1_data, page2_data, page3_data):
-    pdf = PDF("P","mm","A4")
-    pdf.alias_nb_pages()
+def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, page1_data, page2_data, page3_data):
+    pdf = FPDF(format='A4', unit='mm')
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Font setup
+    # Add Unicode Fonts
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
-    pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
-    pdf.set_font("DejaVu","",10)
 
-    # Calculate effective width here
+    # Compute effective width
     effective_width = pdf.w - 2 * pdf.l_margin
 
-    # Now, you can safely use effective_width
-    left_width = effective_width / 2
-    right_width = effective_width / 2
-
-    # Rest of your PDF generation code...
 
 
     # ---------------------------
@@ -624,6 +615,8 @@ def main():
     # Render the top nav
     render_navbar()
 
+    page_container = st.container()
+
     # Decide page
 
     page_idx = st.session_state.current_page
@@ -638,9 +631,9 @@ def main():
 
 
     # If last page, show generate
-    if page_idx == len(PAGES)-1:
+    if st.session_state.current_page == len(PAGES) - 1:
         st.markdown("### All pages completed.")
-        if st.button("Generate PDF", key="gen_pdf_btn"):
+        if st.button("Generate PDF"):
             pdf_bytes = create_pdf_report(
                 lab_name="KELP Laboratory",
                 lab_address="520 Mercury Dr, Sunnyvale, CA 94085",
