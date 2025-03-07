@@ -367,15 +367,19 @@ class MyPDF(FPDF):
 
 
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, page1_data, page2_data, page3_data):
-    pdf = FPDF(format='A4', unit='mm')
-    pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Add Unicode Fonts
+    pdf = PDF("P", "mm", "A4")
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_text_color(0, 0, 0)
+    effective_width = 180
+    total_pages = 4  # Cover, Page 1, Page 2, Page 3
+
+    # IMPORTANT: Use a Unicode font for characters like "₃"
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
-
-    # Compute effective width
-    effective_width = pdf.w - 2 * pdf.l_margin
+    pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
+    pdf.set_font("DejaVu", "", 10)
 
 
 
