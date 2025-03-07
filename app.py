@@ -604,9 +604,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     buffer.seek(0)
     return buffer.read()
 
-#####################################
+
 # MAIN APP
-#####################################
+
 def main():
     st.title("Water Quality COA (Auto-Generated Fields)")
 
