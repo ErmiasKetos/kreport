@@ -12,6 +12,7 @@ from collections import defaultdict
 class PDF(FPDF):
     def footer(self):
         self.set_y(-15)
+        # Using built-in DejaVu fonts; ensure these .ttf files exist in your working directory
         self.set_font("DejaVu", "I", 8)
         self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
 
@@ -92,34 +93,8 @@ analyte_to_methods = {
 #####################################
 PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control Data"]
 
-# Initialize current_page in session_state if not present
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
-
-# Ensure cover_data is initialized with all keys
-default_date = datetime.date.today().strftime("%m/%d/%Y")
-if "cover_data" not in st.session_state or not st.session_state["cover_data"]:
-    st.session_state["cover_data"] = {
-        "lab_name": "KELP Laboratory",
-        "work_order": "",
-        "project_name": "",
-        "client_name": "",
-        "street": "",
-        "city": "",
-        "state": "",
-        "zip": "",
-        "country": "",
-        "phone": "",
-        "date_samples_received": default_date,
-        "date_reported": default_date,
-        "analysis_type": "Environmental",
-        "coc_number": generate_coc_number(),
-        "po_number": generate_po_number(),
-        "report_title": "CERTIFICATE OF ANALYSIS",
-        "comments": "None",
-        "signatory_name": "",
-        "signatory_title": "Lab Manager",
-    }
 
 def render_navbar():
     st.markdown(
@@ -163,7 +138,8 @@ def render_navbar():
     
     cols = st.columns(len(PAGES))
     for i, page in enumerate(PAGES):
-        if cols[i].button(page, key=f"nav_{i}_{st.session_state.current_page}"):
+        # Use a unique key based solely on the page index.
+        if cols[i].button(page, key=f"nav_{i}"):
             st.session_state.current_page = i
 
 def render_nav_buttons():
@@ -408,7 +384,7 @@ def main_app():
         with page_container:
             render_quality_control_page()
     
-    # On the final page (Page 3), show the Generate PDF button.
+    # On the final page, show the Generate PDF button.
     if st.session_state.current_page == len(PAGES) - 1:
         st.markdown("### All pages completed.")
         if st.button("Generate PDF and Download", key="generate_pdf"):
@@ -667,6 +643,18 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     return buffer.read()
 
 if __name__ == "__main__":
+    # Initialize session state keys if not already set.
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = 0
+    if "cover_data" not in st.session_state:
+        st.session_state["cover_data"] = {}
+    if "page1_data" not in st.session_state:
+        st.session_state["page1_data"] = {}
+    if "page2_data" not in st.session_state:
+        st.session_state["page2_data"] = {}
+    if "page3_data" not in st.session_state:
+        st.session_state["page3_data"] = {}
+    
     def main_app():
         st.title("Water Quality COA (Auto-Generated Fields)")
         render_navbar()
@@ -682,7 +670,7 @@ if __name__ == "__main__":
         auto_po_number = generate_po_number()
         default_date = datetime.date.today().strftime("%m/%d/%Y")
     
-        if "cover_data" not in st.session_state:
+        if "cover_data" not in st.session_state or not st.session_state["cover_data"]:
             st.session_state["cover_data"] = {
                 "lab_name": lab_name,
                 "work_order": auto_work_order,
@@ -720,6 +708,7 @@ if __name__ == "__main__":
             with page_container:
                 render_quality_control_page()
     
+        # On the final page, show the Generate PDF button.
         if st.session_state.current_page == len(PAGES) - 1:
             st.markdown("### All pages completed.")
             if st.button("Generate PDF and Download", key="generate_pdf"):
@@ -741,7 +730,4 @@ if __name__ == "__main__":
                     key="download_pdf"
                 )
     
-    main_app()
-    
-if __name__ == "__main__":
     main_app()
