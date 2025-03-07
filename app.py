@@ -409,13 +409,15 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.image("kelp_logo.png", x=50, y=30, w=60)
     except Exception as e:
         pdf.set_font("DejaVu", "B", 12)
+        pdf.set_xy(50, 30)
         pdf.cell(50, 10, "[LOGO]", border=0, ln=0, align="L")
     
     # Move down to leave space after the logo
-    pdf.set_xy(120, 30)  # Adjust to right alignment
+    pdf.set_x(120)  # Adjust to right alignment
     pdf.set_font("DejaVu", "B", 12)
     pdf.cell(0, 5, lab_name, ln=True, align="R")
 
+    pdf.set_x(120)
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(0, 5, lab_address, ln=True, align="R")
     pdf.cell(0, 5, f"Email: {lab_phone}", ln=True, align="R")
