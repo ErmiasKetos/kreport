@@ -405,30 +405,30 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
 
     # Insert the KELP logo at the top-left
     try:
-        pdf.image("kelp_logo.png", x=10, y=5, w=50)
+        pdf.image("kelp_logo.png", x=10, y=2, w=60)
     except Exception as e:
         pdf.set_font("DejaVu", "B", 12)
-        pdf.set_xy(10, 10)
+        pdf.set_xy(10, 5)
         pdf.cell(50, 10, "[LOGO]", border=0, ln=0, align="L")
     
     # Move down to leave space after the logo
     
-    pdf.set_xy(140, 8)  # Shift up to align with the logo
+    pdf.set_xy(140, 5)  # Shift up to align with the logo
     #pdf.set_font("DejaVu", "B", 12)
     #pdf.cell(0, 5, "KELP Laboratory", ln=True, align="R")
     
     pdf.set_font("DejaVu", "", 10)
-    pdf.set_x(140)
+    pdf.set_xy(140,11)
     pdf.cell(0, 5, "520 Mercury Dr, Sunnyvale, CA 94085", ln=True, align="R")
     
-    pdf.set_x(140)
+    pdf.set_xy(140,11)
     pdf.cell(0, 5, "Email: kelp@ketoslab.com", ln=True, align="R")
     
-    pdf.set_x(140)
+    pdf.set_xy(140,17)
     pdf.cell(0, 5, "Phone: (408) 461-8860", ln=True, align="R")
     
     # Add more space before the title so it doesn't clash with the header
-    pdf.ln(25)
+    pdf.ln(30)
 
     # Centered Report Title
     pdf.set_font("DejaVu", "B", 16)
