@@ -59,7 +59,7 @@ analyte_to_methods = {
     "Fluoride": ["EPA 300.0", "EPA 300.1", "SM 4110B-2000", "SM 4500-F C-1997", "SM 4500-F B,D-1997", "SM 4500-F E-1997"],
     "Hardness": ["SM 2340 C-1997"],
     "Hardness (Calculation)": ["EPA 200.7", "SM 2340 B-1997", "SM 3111 B-1999", "SM 3120 B-1999"],
-    "Hydrogen Ion (pH)": ["EPA 150.1", "EPA 150.2", "SM 4500-H\\+\\ B-2000"],
+    "Hydrogen Ion (pH)": ["EPA 150.1", "EPA 150.2", "SM 4500-H\\+\\ B-1997"],
     "Magnesium": ["EPA 200.5", "EPA 200.7", "SM 3111 B-1999", "SM 3120 B-1999", "SM 3500-Mg B-1997"],
     "Microplastics > 500 µm": ["SWB-MP2-rev1"],
     "Microplastics >500 µm": ["SWB-MP1-rev1"],
@@ -137,16 +137,16 @@ def render_navbar():
     
     cols = st.columns(len(PAGES))
     for i, page in enumerate(PAGES):
-        if cols[i].button(page, key=f"nav_{i}"):
+        if cols[i].button(page, key=f"nav_{i}_{st.session_state.current_page}"):
             st.session_state.current_page = i
 
 def render_nav_buttons():
     col1, col2 = st.columns(2)
     if st.session_state.current_page > 0:
-        if col1.button("Back", key="back_nav"):
+        if col1.button("Back", key=f"back_nav_{st.session_state.current_page}"):
             st.session_state.current_page -= 1
     if st.session_state.current_page < len(PAGES) - 1:
-        if col2.button("Next", key="next_nav"):
+        if col2.button("Next", key=f"next_nav_{st.session_state.current_page}"):
             st.session_state.current_page += 1
 
 #####################################
@@ -203,7 +203,6 @@ def main():
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
     
-    # Combine address fields into one for the PDF
     st.session_state["cover_data"]["address_line"] = (
         st.session_state["cover_data"]["street"] + ", " +
         st.session_state["cover_data"]["city"] + ", " +
@@ -226,7 +225,6 @@ def main():
     st.session_state["cover_data"]["signatory_title"] = st.text_input("Lab Manager Title", value=st.session_state["cover_data"]["signatory_title"])
     
     if st.session_state.current_page == 0:
-        # Only one page is visible at a time; no preview is shown.
         render_nav_buttons()
     
     #####################################
@@ -381,7 +379,7 @@ def main():
     # Final step: Generate PDF on last page
     if st.session_state.current_page == len(PAGES)-1:
         st.markdown("### All pages completed.")
-        if st.button("Generate PDF and Download"):
+        if st.button("Generate PDF and Download", key="generate_pdf"):
             pdf_bytes = create_pdf_report(
                 lab_name=lab_name,
                 lab_address=lab_address,
@@ -396,7 +394,8 @@ def main():
                 "Download PDF",
                 data=pdf_bytes,
                 file_name="MultiPage_COA_withCover.pdf",
-                mime="application/pdf"
+                mime="application/pdf",
+                key="download_pdf"
             )
 
 #####################################
