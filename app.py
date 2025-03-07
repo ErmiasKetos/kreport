@@ -374,6 +374,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_text_color(0, 0, 0)
     effective_width = 180
     total_pages = 4  # Cover, Page 1, Page 2, Page 3
+    logo_path = "kelp_logo.png"  # Adjust the path as needed
+    pdf.image(logo_path, x=10, y=10, w=40)  # Adjust size (w)
+    pdf.set_y(50)
 
     # IMPORTANT: Use a Unicode font for characters like "₃"
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
