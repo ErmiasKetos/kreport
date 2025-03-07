@@ -388,6 +388,10 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     # 0. COVER PAGE
     # ---------------------------
     pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Effective width calculation (A4 width minus margins)
+    effective_width = pdf.w - 2 * pdf.l_margin
     
 
     # Insert the KELP logo at the top-left
