@@ -130,15 +130,22 @@ def render_navbar():
 #####################################
 # 3) Next/Back
 #####################################
+
 def render_nav_buttons():
-    random_suffix = ''.join(random.choices("0123456789", k=5))
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1])
+    
+    # Back button (show only if not on the first page)
     if st.session_state.current_page > 0:
-        if col1.button("Back", key=f"back_btn_{random_suffix}"):
+        if col1.button("Back", key=f"back_{st.session_state.current_page}"):
             st.session_state.current_page -= 1
+            st.rerun()
+
+    # Next button (show only if not on the last page)
     if st.session_state.current_page < len(PAGES) - 1:
-        if col2.button("Next", key=f"next_btn_{random_suffix}"):
+        if col2.button("Next", key=f"next_{st.session_state.current_page}"):
             st.session_state.current_page += 1
+            st.rerun()
+
 
 #####################################
 # 4) Page Renders
