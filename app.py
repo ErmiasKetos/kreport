@@ -429,6 +429,11 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     
     # Add more space before the title so it doesn't clash with the header
     pdf.ln(25)
+
+    # Centered Report Title
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
+    pdf.ln(4)
                           
     left_width = 90
     right_width = 90
