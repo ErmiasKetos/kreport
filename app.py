@@ -644,12 +644,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
 
 def main():
     st.title("Water Quality COA")
-    if st.button("🔄 Refresh / Start Over"):
-        reset_app()
+
 
     # Render the top nav
     render_navbar()
-
+    if st.button("🔄 Refresh / Start Over"):
+        reset_app()
     page_container = st.container()
 
     # Decide page
