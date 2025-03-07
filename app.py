@@ -13,7 +13,7 @@ class PDF(FPDF):
     def footer(self):
         # Position the footer 15 mm from the bottom
         self.set_y(-15)
-        self.set_font('DejaVu', 'I', 8)
+        self.set_font("DejaVu", "I", 8)
         self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
 
 #####################################
@@ -151,10 +151,9 @@ def main():
     #####################################
     # 1. PAGE 1: SAMPLE SUMMARY
     #####################################
-    # Use values from cover_data for Report ID, Report Date, Client Name, and Client Address.
     if "page1_data" not in st.session_state:
         st.session_state["page1_data"] = {
-            "report_id": "".join(random.choices("0123456789", k=7)),  # 7-digit numerical Report ID
+            "report_id": "".join(random.choices("0123456789", k=7)),
             "report_date": default_date,
             "client_name": st.session_state["cover_data"]["client_name"],
             "client_address": st.session_state["cover_data"]["address_line"],
@@ -179,14 +178,15 @@ def main():
                 "date_collected": sample_date_collected,
                 "date_received": sample_date_received
             })
-        
-    st.write("**Current Water Samples (Page 1):**")
+    
     if st.session_state["page1_data"]["samples"]:
+        st.write("**Current Water Samples (Page 1):**")
         for i, s_ in enumerate(st.session_state["page1_data"]["samples"], 1):
             st.write(f"{i}. Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, Collected: {s_['date_collected']}, Received: {s_['date_received']}")
     else:
         st.info("No water samples added yet.")
-
+    
+    st.markdown("---")
     
     #####################################
     # 2. PAGE 2: ANALYTICAL RESULTS
@@ -219,6 +219,8 @@ def main():
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
         else:
             result_lab_id = st.text_input("Lab ID", value="")
+        # Also capture Sample ID for grouping (if not already stored)
+        result_sample_id = st.text_input("Sample ID", value="")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             dilution_factor = st.text_input("DF", value="")
@@ -234,6 +236,7 @@ def main():
             if result_lab_id:
                 st.session_state["page2_data"]["results"].append({
                     "lab_id": result_lab_id,
+                    "sample_id": result_sample_id,
                     "parameter": selected_parameter,
                     "analysis": selected_method,
                     "df": dilution_factor,
@@ -246,7 +249,7 @@ def main():
     if st.session_state["page2_data"]["results"]:
         st.write("**Current Analytical Results (Page 2):**")
         for i, r_ in enumerate(st.session_state["page2_data"]["results"], 1):
-            st.write(f"{i}. Lab ID: {r_['lab_id']}, Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
+            st.write(f"{i}. Lab ID: {r_['lab_id']}, Sample ID: {r_.get('sample_id','')}, Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
     else:
         st.info("No analytical results added yet.")
     
@@ -274,13 +277,12 @@ def main():
             qc_pql = st.text_input("PQL", value="0.005")
         with col4:
             qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
-            
         # New field: Method Blank Conc.
-        qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")    
+        qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
         
         if st.form_submit_button("Add QC Entry"):
-            qc_batch = generate_qc_batch()         # auto-generate, e.g., "ABC123"
-            method_blank = generate_method_blank()   # auto-generate, e.g., "AB12345"
+            qc_batch = generate_qc_batch()         # e.g., "ABC123"
+            method_blank = generate_method_blank()   # e.g., "AB12345"
             st.session_state["page3_data"]["qc_entries"].append({
                 "qc_batch": qc_batch,
                 "qc_method": qc_selected_method,
@@ -288,9 +290,9 @@ def main():
                 "unit": qc_unit,
                 "mdl": qc_mdl,
                 "pql": qc_pql,
-                "blank_result": qc_method_blank_conc,  # now capture the Method Blank Conc.
+                "blank_result": qc_method_blank_conc,
                 "lab_qualifier": qc_lab_qualifier,
-                "method_blank": method_blank  # auto-generated Method Blank (if still needed)
+                "method_blank": method_blank
             })
     
     if st.session_state["page3_data"]["qc_entries"]:
@@ -298,12 +300,13 @@ def main():
         for i, qc_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
             st.write(
                 f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, Parameter: {qc_['parameter']}, "
-                f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, "
-                f"Method Blank Conc.: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}"
+                f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, Method Blank Conc.: {qc_['blank_result']}, "
+                f"Lab Qualifier: {qc_['lab_qualifier']}"
             )
     else:
         st.info("No QC data entries yet.")
-
+    
+    st.markdown("---")
     
     #####################################
     # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
@@ -392,7 +395,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
     pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
     pdf.set_font("DejaVu", "", 10)
-
     
     # ---------------------------
     # 0. COVER PAGE
@@ -494,8 +496,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Client: {page1_data['client_name']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Address: {page1_data['client_address']}", ln=True, align="L")
+    # Use cover_data for client info:
+    pdf.cell(effective_width, 6, f"Client: {cover_data['client_name']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Address: {cover_data['address_line']}", ln=True, align="L")
     pdf.ln(4)
     
     pdf.set_font("DejaVu", "B", 10)
@@ -527,27 +530,26 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
 
- 
     # Group results by a tuple (lab_id, sample_id)
     results_by_lab = defaultdict(list)
-    for r in page2_data["results"]:
-        key = (r["lab_id"], r.get("sample_id", ""))
-        results_by_lab[key].append(r)
+    for r_ in page2_data["results"]:
+        key = (r_["lab_id"], r_.get("sample_id", ""))
+        results_by_lab[key].append(r_)
     
-    # Iterate over each group and create a table for each
     for (lab_id, sample_id), results_list in results_by_lab.items():
+        header_text = f"Analytical Results for Lab ID: {lab_id}"
+        if sample_id:
+            header_text += f", Sample ID: {sample_id}"
         pdf.set_font("DejaVu", "B", 12)
-        pdf.cell(0, 8, f"Analytical Results for Lab ID: {lab_id}, {sample_id}", ln=True, align="L")
+        pdf.cell(0, 8, header_text, ln=True, align="L")
         pdf.ln(2)
-        
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
         headers2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-        widths2 = [35, 30, 15, 15, 15, 30, 15]  # adjust widths as needed
+        widths2 = [35, 30, 15, 15, 15, 30, 15]
         for h, w in zip(headers2, widths2):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
-        
         pdf.set_font("DejaVu", "", 10)
         for row in results_list:
             row_data = [row["parameter"], row["analysis"], row["df"], row["mdl"], row["pql"], row["result"], row["unit"]]
@@ -555,7 +557,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
         pdf.ln(10)
-
     
     # ---------------------------
     # 3. PAGE 3: QUALITY CONTROL DATA (Grouped by QC Analysis Method)
@@ -586,8 +587,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
-        headers_qc = ["Parameter", "Unit", "MDL", "PQL", "Lab Qualifier"]
-        widths_qc = [40, 15, 15, 15, 30]
+        # Updated headers including "Method Blank Conc."
+        headers_qc = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
+        widths_qc = [35, 15, 15, 15, 40, 20]  # adjust widths as needed (total ~140)
         for h, w in zip(headers_qc, widths_qc):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
@@ -599,6 +601,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                 qc_["unit"],
                 qc_["mdl"],
                 qc_["pql"],
+                qc_["blank_result"],
                 qc_["lab_qualifier"]
             ]
             for val, w in zip(row_vals, widths_qc):
