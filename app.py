@@ -297,35 +297,55 @@ def main():
     st.header("Page 3: QUALITY CONTROL DATA")
     st.subheader("Add QC Data Entry (Page 3)")
     with st.form("page3_qc_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
+        # First row: QC Batch & QC Method
+        colA, colB = st.columns(2)
+        with colA:
             qc_batch = st.text_input("QC Batch", value="DGMj/1712")
-        with col2:
+        with colB:
             qc_method = st.text_input("QC Method", value="EPA 200.8")
-        col3, col4 = st.columns(2)
-        with col3:
+        
+        # Second row: Parameter, Unit, MDL, PQL
+        colC, colD, colE, colF = st.columns(4)
+        with colC:
             qc_parameter = st.text_input("Parameter", value="Beryllium")
-        with col4:
+        with colD:
+            qc_unit = st.text_input("Unit", value="mg/L")
+        with colE:
+            qc_mdl = st.text_input("MDL", value="0.0010")
+        with colF:
+            qc_pql = st.text_input("PQL", value="0.005")
+        
+        # Third row: Blank Result & Lab Qualifier
+        colG, colH = st.columns(2)
+        with colG:
             qc_blank = st.text_input("Blank Result", value="0.0010 mg/L U")
-    
+        with colH:
+            qc_qualifier = st.text_input("Lab Qualifier", value="")
+        
         if st.form_submit_button("Add QC Entry"):
             if qc_batch.strip():
                 st.session_state["page3_data"]["qc_entries"].append({
                     "qc_batch": qc_batch,
                     "qc_method": qc_method,
                     "parameter": qc_parameter,
-                    "blank_result": qc_blank
+                    "unit": qc_unit,
+                    "mdl": qc_mdl,
+                    "pql": qc_pql,
+                    "blank_result": qc_blank,
+                    "lab_qualifier": qc_qualifier
                 })
     
     if st.session_state["page3_data"]["qc_entries"]:
         st.write("**Current QC Data (Page 3):**")
-        for i, q_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
-            st.write(f"{i}. QC Batch: {q_['qc_batch']}, Method: {q_['qc_method']}, "
-                     f"Parameter: {q_['parameter']}, Blank: {q_['blank_result']}")
+        for i, qc_ in enumerate(st.session_state["page3_data"]["qc_entries"], 1):
+            st.write(
+                f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, Parameter: {qc_['parameter']}, "
+                f"Unit: {qc_['unit']}, MDL: {qc_['mdl']}, PQL: {qc_['pql']}, Blank: {qc_['blank_result']}, "
+                f"Lab Qualifier: {qc_['lab_qualifier']}"
+            )
     else:
         st.info("No QC data entries yet.")
-    
-    st.markdown("---")
+
     
     #####################################
     # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
