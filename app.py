@@ -413,10 +413,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(40, 6, "Address:", border=1, align="L", fill=True)
     pdf.set_font("DejaVu", "", 10)
     pdf.set_fill_color(255, 255, 255)
-    start_y = pdf.get_y()
+    # Print the full combined address (Street, City, State, Zip, Country)
     pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1, align="L")
-    end_y = pdf.get_y()
-    pdf.ln(2 if (end_y - start_y) < 12 else 0)
+    pdf.ln(2)
 
     pdf.set_font("DejaVu", "B", 10)
     pdf.set_fill_color(240, 240, 240)
@@ -471,7 +470,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     
     pdf.set_font("DejaVu", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]  # total=180
+    widths = [30, 40, 30, 40, 40]  # Sum = 180 (page-wide)
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -497,20 +496,18 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
-
+    
     # Group results by a tuple (lab_id, sample_id)
     results_by_lab = defaultdict(list)
     for r_ in page2_data["results"]:
         key = (r_["lab_id"], r_.get("sample_id", ""))
         results_by_lab[key].append(r_)
     
-    # New column widths for analytical results table (sum=180)
+    # Define column widths so that total width = 180 mm
     widths2 = [40, 35, 20, 20, 20, 30, 15]
     
     for (lab_id, sample_id), results_list in results_by_lab.items():
-        header_text = f"Analytical Results for Lab ID: {lab_id}"
-        if sample_id:
-            header_text += f" ( Sample ID: {sample_id} )"
+        header_text = f"Analytical Results for Lab ID: {lab_id} ( Sample ID: {sample_id} )"
         pdf.set_font("DejaVu", "B", 12)
         pdf.cell(0, 8, header_text, ln=True, align="L")
         pdf.ln(2)
@@ -548,7 +545,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     for qc_ in page3_data["qc_entries"]:
         qc_by_method[qc_["qc_method"]].append(qc_)
     
-    # New column widths for QC table (sum=180)
+    # Define column widths for QC table (set total = 180 mm)
     widths_qc = [45, 20, 20, 20, 40, 35]
     
     for method, qcs in qc_by_method.items():
@@ -578,6 +575,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
             for val, w in zip(row_vals, widths_qc):
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
+    
         pdf.ln(10)
     
     pdf.ln(8)
@@ -593,6 +591,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.output(buffer)
     buffer.seek(0)
     return buffer.read()
+
 
 if __name__ == "__main__":
     main()
