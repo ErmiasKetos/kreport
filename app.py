@@ -6,11 +6,12 @@ import random
 import string
 from collections import defaultdict
 
+
 def reset_app():
     """Clears all session state variables and reloads the app."""
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.experimental_rerun()
+    st.session_state.clear()  # This removes all session state variables
+    st.rerun()  # Use this instead of st.experimental_rerun()
+
 
 #####################################
 # PDF Class for Page Numbers
