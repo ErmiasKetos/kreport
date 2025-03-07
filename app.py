@@ -398,6 +398,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     # IMPORTANT: Use a Unicode font for characters like "₃"
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
+    pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
     pdf.set_font("DejaVu", "", 10)
 
     
