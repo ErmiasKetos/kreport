@@ -377,15 +377,228 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
     pdf.set_font("DejaVu","",10)
 
-    # ...
-    # For brevity, you'd replicate the same PDF building logic from before.
-    # ...
-    # We'll just do a simple placeholder:
+    # ---------------------------
+    # 0. COVER PAGE
+    # ---------------------------
     pdf.add_page()
-    pdf.cell(0,10,"Placeholder for final PDF content", ln=True)
-    pdf.ln(5)
-    pdf.cell(0,10,"(Implement the final PDF layout here)", ln=True)
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
+    pdf.ln(4)
+                          
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 6, lab_name, ln=True, align="R")
+    pdf.set_font("DejaVu", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}   Phone: {lab_phone}", ln=True, align="R")
+    pdf.ln(4)
+    
+    left_width = effective_width / 2
+    right_width = effective_width / 2
 
+    def table_row(label_text, data_text):
+        pdf.set_font("DejaVu", "B", 10)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(left_width, 6, label_text, border=1, ln=0, align="L", fill=True)
+        pdf.set_font("DejaVu", "", 10)
+        pdf.set_fill_color(255, 255, 255)
+        pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L", fill=True)
+
+    table_row("Work Order:", cover_data["work_order"])
+    table_row("Project:", cover_data["project_name"])
+    table_row("Analysis Type:", cover_data["analysis_type"])
+    table_row("COC #:", cover_data["coc_number"])
+    table_row("PO #:", cover_data["po_number"])
+    table_row("Date Samples Received:", cover_data["date_samples_received"])
+    table_row("Date Reported:", cover_data["date_reported"])
+    pdf.ln(4)
+
+    pdf.set_font("DejaVu", "B", 10)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(40, 6, "Client Name:", border=1, align="L", fill=True)
+    pdf.set_font("DejaVu", "", 10)
+    pdf.set_fill_color(255, 255, 255)
+    pdf.cell(effective_width - 40, 6, cover_data["client_name"], border=1, ln=True, align="L", fill=True)
+
+    pdf.set_font("DejaVu", "B", 10)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(40, 6, "Address:", border=1, align="L", fill=True)
+    pdf.set_font("DejaVu", "", 10)
+    pdf.set_fill_color(255, 255, 255)
+    # Print the full combined address (Street, City, State, Zip, Country)
+    pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1, align="L")
+    pdf.ln(2)
+
+    pdf.set_font("DejaVu", "B", 10)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(40, 6, "Phone:", border=1, align="L", fill=True)
+    pdf.set_font("DejaVu", "", 10)
+    pdf.set_fill_color(255, 255, 255)
+    pdf.cell(effective_width - 40, 6, cover_data["phone"], border=1, ln=True, align="L", fill=True)
+    pdf.ln(4)
+
+    pdf.set_font("DejaVu", "B", 10)
+    pdf.cell(effective_width, 6, "Comments / Case Narrative", ln=True, align="L")
+    pdf.set_font("DejaVu", "", 10)
+    pdf.multi_cell(effective_width, 5, cover_data["comments"], border=1)
+    pdf.ln(4)
+
+    pdf.set_font("DejaVu", "", 10)
+    signature_text = (
+        "All data for associated QC met EPA or laboratory specification(s) except where noted in the case narrative. "
+        "This report supersedes any previous report(s) with this reference. Results apply to the sample(s) as submitted. "
+        "This document shall not be reproduced, except in full."
+    )
+    pdf.multi_cell(effective_width, 5, signature_text, border=0)
+    pdf.ln(2)
+
+    current_y = pdf.get_y()
+    try:
+        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=30)
+        pdf.set_y(current_y + 15)
+    except:
+        pdf.cell(0, 5, "[Signature image not found]", ln=True)
+
+    pdf.set_font("DejaVu", "", 10)
+    pdf.cell(0, 5, cover_data["signatory_name"], ln=True, align="L")
+    pdf.cell(0, 5, cover_data["signatory_title"], ln=True, align="L")
+    signature_date = datetime.date.today().strftime("%m/%d/%Y")
+    pdf.cell(0, 5, f"Date: {signature_date}", ln=True, align="L")
+
+    # ---------------------------
+    # 1. PAGE 1: SAMPLE SUMMARY
+    # ---------------------------
+    pdf.add_page()
+    pdf.set_font("DejaVu", "B", 14)
+    pdf.cell(0, 10, "SAMPLE SUMMARY", ln=True, align="C")
+    pdf.ln(2)
+    
+    pdf.set_font("DejaVu", "", 10)
+    pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Client: {cover_data['client_name']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Address: {cover_data['address_line']}", ln=True, align="L")
+    pdf.ln(4)
+    
+    pdf.set_font("DejaVu", "B", 10)
+    headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
+    widths = [30, 40, 30, 40, 40]  # Sum = 180 (page-wide)
+    for h, w in zip(headers, widths):
+        pdf.cell(w, 7, h, border=1, align="C", fill=True)
+    pdf.ln(7)
+    
+    pdf.set_font("DejaVu", "", 10)
+    for s_ in page1_data["samples"]:
+        row_vals = [s_["lab_id"], s_["sample_id"], s_["matrix"], s_["date_collected"], s_["date_received"]]
+        for val, w in zip(row_vals, widths):
+            pdf.cell(w, 7, str(val), border=1, align="C")
+        pdf.ln(7)
+    
+    # ---------------------------
+    # 2. PAGE 2: ANALYTICAL RESULTS (Separate table for each Lab ID and Sample ID)
+    # ---------------------------
+    pdf.add_page()
+    pdf.set_font("DejaVu", "B", 14)
+    pdf.cell(0, 10, "ANALYTICAL RESULTS", ln=True, align="C")
+    pdf.ln(2)
+    
+    pdf.set_font("DejaVu", "", 10)
+    pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
+    pdf.ln(4)
+    
+    # Group results by a tuple (lab_id, sample_id)
+    results_by_lab = defaultdict(list)
+    for r_ in page2_data["results"]:
+        key = (r_["lab_id"], r_.get("sample_id", ""))
+        results_by_lab[key].append(r_)
+    
+    # Define column widths so that total width = 180 mm
+    widths2 = [40, 35, 20, 20, 20, 30, 15]
+    
+    for (lab_id, sample_id), results_list in results_by_lab.items():
+        header_text = f"Analytical Results for Lab ID: {lab_id} ( Sample ID: {sample_id} )"
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.cell(0, 8, header_text, ln=True, align="L")
+        pdf.ln(2)
+        pdf.set_font("DejaVu", "B", 10)
+        pdf.set_fill_color(230, 230, 230)
+        headers2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
+        for h, w in zip(headers2, widths2):
+            pdf.cell(w, 7, h, border=1, align="C", fill=True)
+        pdf.ln(7)
+        pdf.set_font("DejaVu", "", 10)
+        for row in results_list:
+            row_data = [row["parameter"], row["analysis"], row["df"], row["mdl"], row["pql"], row["result"], row["unit"]]
+            for val, w in zip(row_data, widths2):
+                pdf.cell(w, 7, str(val), border=1, align="C")
+            pdf.ln(7)
+        pdf.ln(10)
+    
+    # ---------------------------
+    # 3. PAGE 3: QUALITY CONTROL DATA (Grouped by QC Analysis Method)
+    # ---------------------------
+    pdf.add_page()
+    pdf.set_font("DejaVu", "B", 14)
+    pdf.cell(0, 10, "QUALITY CONTROL DATA", ln=True, align="C")
+    pdf.ln(2)
+    
+    pdf.set_font("DejaVu", "", 10)
+    pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
+    pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
+    pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
+    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+    pdf.ln(5)
+    
+    # Group QC data by qc_method
+    qc_by_method = defaultdict(list)
+    for qc_ in page3_data["qc_entries"]:
+        qc_by_method[qc_["qc_method"]].append(qc_)
+    
+    # Define column widths for QC table (set total = 180 mm)
+    widths_qc = [45, 20, 20, 20, 40, 35]
+    
+    for method, qcs in qc_by_method.items():
+        pdf.set_font("DejaVu", "B", 10)
+        pdf.cell(0, 5, f"QC Batch: {qcs[0]['qc_batch']}", ln=True, align="L")
+        pdf.cell(0, 5, f"QC Analysis (Method): {method}", ln=True, align="L")
+        pdf.cell(0, 5, f"Method Blank: {qcs[0]['method_blank']}", ln=True, align="L")
+        pdf.ln(3)
+    
+        pdf.set_font("DejaVu", "B", 10)
+        pdf.set_fill_color(230, 230, 230)
+        headers_qc = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
+        for h, w in zip(headers_qc, widths_qc):
+            pdf.cell(w, 7, h, border=1, align="C", fill=True)
+        pdf.ln(7)
+    
+        pdf.set_font("DejaVu", "", 10)
+        for qc_ in qcs:
+            row_vals = [
+                qc_["parameter"],
+                qc_["unit"],
+                qc_["mdl"],
+                qc_["pql"],
+                qc_["blank_result"],
+                qc_["lab_qualifier"]
+            ]
+            for val, w in zip(row_vals, widths_qc):
+                pdf.cell(w, 7, str(val), border=1, align="C")
+            pdf.ln(7)
+    
+        pdf.ln(10)
+    
+    pdf.ln(8)
+    pdf.set_font("DejaVu", "I", 8)
+    pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
+                         "Test results reported relate only to the samples as received by the laboratory.")
+    
+    pdf.set_y(-15)
+    pdf.set_font("DejaVu", "I", 8)
+    pdf.cell(0, 10, f"Page {pdf.page_no()} of {total_pages}", 0, 0, "C")
+    
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
