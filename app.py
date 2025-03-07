@@ -406,29 +406,31 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
 
     # Insert the KELP logo at the top-left
     try:
-        pdf.image("kelp_logo.png", x=1, y=1, w=70)
+        pdf.image("kelp_logo.png", x=logo_x, y=logo_y, w=logo_width)
     except Exception as e:
-        pdf.set_font("DejaVu", "", 10)
-        pdf.cell(0, 10, "[Logo not found]", ln=True, align="L")
+        pdf.set_xy(logo_x, logo_y)
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.cell(50, 10, "[LOGO]", border=0, ln=0, align="L")
     
     # Move down to leave space after the logo
-    pdf.set_y(35)
+    pdf.set_xy(120, 30)  # Adjust to right alignment
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(0, 5, lab_name, ln=True, align="R")
+
+    pdf.set_font("DejaVu", "", 10)
+    pdf.cell(0, 5, lab_address, ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_phone}", ln=True, align="R")
+    pdf.cell(0, 5, f"Email: {lab_email}", ln=True, align="R")
+    pdf.ln(10)
     
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 10, cover_data["report_title"], ln=True, align="C")
     pdf.ln(4)
                           
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 6, lab_name, ln=True, align="R")
-    pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 5, lab_address, ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_phone}", ln=True, align="R")
-    pdf.cell(0, 5, f"Email: {lab_email}", ln=True, align="R")
-    pdf.ln(5)
+
     
-    left_width = effective_width / 2
-    right_width = effective_width / 2
+    left_width = 90
+    right_width = 90
 
     def table_row(label_text, data_text):
         pdf.set_font("DejaVu", "B", 10)
