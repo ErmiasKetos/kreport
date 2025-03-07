@@ -395,7 +395,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.image("kelp_logo.png", x=-1, y=-1, w=70)
     except Exception as e:
         pdf.set_font("DejaVu", "", 10)
-        pdf.cell(0, 10, "[Logo not found]", ln=True, align="L")
+        pdf.cell(0, 10, "[Logo not found]", ln=True, align="R")
     
     # Move down to leave space after the logo
     pdf.set_y(35)
