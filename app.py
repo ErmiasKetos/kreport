@@ -413,12 +413,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     
     # Move down to leave space after the logo
     
-    pdf.set_xy(140, 5)  # Shift up to align with the logo
+    #pdf.set_xy(140, 5)  # Shift up to align with the logo
     #pdf.set_font("DejaVu", "B", 12)
     #pdf.cell(0, 5, "KELP Laboratory", ln=True, align="R")
     
     pdf.set_font("DejaVu", "", 10)
-    pdf.set_xy(140,11)
+    pdf.set_xy(140,5)
     pdf.cell(0, 5, "520 Mercury Dr, Sunnyvale, CA 94085", ln=True, align="R")
     
     pdf.set_xy(140,11)
