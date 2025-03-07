@@ -108,13 +108,18 @@ def main():
     #####################################
     # 0. Cover Page Data
     #####################################
+    # For the address, use separate fields:
     if "cover_data" not in st.session_state:
         st.session_state["cover_data"] = {
             "lab_name": lab_name,
             "work_order": auto_work_order,
             "project_name": "",
             "client_name": "",
-            "address_line": "",
+            "street": "",
+            "city": "",
+            "state": "",
+            "zip": "",
+            "country": "",
             "phone": "",
             "date_samples_received": default_date,
             "date_reported": default_date,
@@ -129,10 +134,24 @@ def main():
     st.header("Cover Page Fields (Optional Edits)")
     st.session_state["cover_data"]["project_name"] = st.text_input("Project Name", value=st.session_state["cover_data"]["project_name"])
     st.session_state["cover_data"]["client_name"] = st.text_input("Client Name", value=st.session_state["cover_data"]["client_name"])
-    st.session_state["cover_data"]["address_line"] = st.text_area("Address", value=st.session_state["cover_data"]["address_line"])
+    # Address fields
+    st.session_state["cover_data"]["street"] = st.text_input("Street Address", value=st.session_state["cover_data"].get("street", ""))
+    st.session_state["cover_data"]["city"] = st.text_input("City", value=st.session_state["cover_data"].get("city", ""))
+    st.session_state["cover_data"]["state"] = st.text_input("State/Province/Region", value=st.session_state["cover_data"].get("state", ""))
+    st.session_state["cover_data"]["zip"] = st.text_input("Postal/Zip Code", value=st.session_state["cover_data"].get("zip", ""))
+    st.session_state["cover_data"]["country"] = st.text_input("Country", value=st.session_state["cover_data"].get("country", ""))
     st.session_state["cover_data"]["analysis_type"] = st.text_input("Analysis Type", value=st.session_state["cover_data"]["analysis_type"])
     st.session_state["cover_data"]["comments"] = st.text_area("Comments / Narrative", value=st.session_state["cover_data"]["comments"])
-
+    
+    # Combine address fields into one address_line for PDF generation
+    st.session_state["cover_data"]["address_line"] = (
+        st.session_state["cover_data"]["street"] + ", " +
+        st.session_state["cover_data"]["city"] + ", " +
+        st.session_state["cover_data"]["state"] + " " +
+        st.session_state["cover_data"]["zip"] + ", " +
+        st.session_state["cover_data"]["country"]
+    )
+    
     sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
     if "work_order" not in st.session_state["cover_data"] or st.session_state["cover_data"]["work_order"] == auto_work_order:
         try:
@@ -219,7 +238,7 @@ def main():
             result_lab_id = st.selectbox("Select Lab ID", options=lab_ids, key="result_lab_id")
         else:
             result_lab_id = st.text_input("Lab ID", value="")
-        # Also capture Sample ID for grouping (if not already stored)
+        # Capture Sample ID for grouping
         result_sample_id = st.text_input("Sample ID", value="")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -277,7 +296,6 @@ def main():
             qc_pql = st.text_input("PQL", value="0.005")
         with col4:
             qc_lab_qualifier = st.text_input("Lab Qualifier", value="")
-        # New field: Method Blank Conc.
         qc_method_blank_conc = st.text_input("Method Blank Conc.", value="")
         
         if st.form_submit_button("Add QC Entry"):
@@ -309,57 +327,9 @@ def main():
     st.markdown("---")
     
     #####################################
-    # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
+    # 5. Generate PDF (4 pages total: Cover + Page 1 + Page 2 + Page 3)
     #####################################
-    if "page4_data" not in st.session_state:
-        st.session_state["page4_data"] = {"cross_refs": []}
-    st.header("Page 4: QC DATA CROSS REFERENCE TABLE")
-    st.subheader("Add Cross Reference Entry (Page 4)")
-    with st.form("page4_qc_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            cross_lab_id = st.text_input("Lab ID", value="")
-        with col2:
-            cross_sample_id = st.text_input("Sample ID", value="")
-        col3, col4 = st.columns(2)
-        with col3:
-            prep_method = st.text_input("Prep Method", value="DGMj/1712")
-        with col4:
-            analysis_method = st.text_input("Analysis Method", value="EPA 200.8")
-        col5, col6 = st.columns(2)
-        with col5:
-            prep_batch = st.text_input("Prep Batch", value="ICMj/1277")
-        with col6:
-            batch_analysis = st.text_input("Batch Analysis", value="EPA 200.8")
-    
-        if st.form_submit_button("Add Cross Reference (Page 4)"):
-            if cross_lab_id.strip():
-                st.session_state["page4_data"]["cross_refs"].append({
-                    "lab_id": cross_lab_id,
-                    "sample_id": cross_sample_id,
-                    "prep_method": prep_method,
-                    "analysis_method": analysis_method,
-                    "prep_batch": prep_batch,
-                    "batch_analysis": batch_analysis
-                })
-    
-    if st.session_state["page4_data"]["cross_refs"]:
-        st.write("**Current Cross References (Page 4):**")
-        for i, c_ in enumerate(st.session_state["page4_data"]["cross_refs"], 1):
-            st.write(
-                f"{i}. Lab ID: {c_['lab_id']}, Sample ID: {c_['sample_id']}, "
-                f"Prep Method: {c_['prep_method']}, Analysis Method: {c_['analysis_method']}, "
-                f"Prep Batch: {c_['prep_batch']}, Batch Analysis: {c_['batch_analysis']}"
-            )
-    else:
-        st.info("No cross references yet.")
-    
-    st.markdown("---")
-    
-    #####################################
-    # 5. Generate PDF (5 pages total: Cover + 4)
-    #####################################
-    if st.button("Generate 5-Page COA PDF"):
+    if st.button("Generate 4-Page COA PDF"):
         pdf_bytes = create_pdf_report(
             lab_name=lab_name,
             lab_address=lab_address,
@@ -368,8 +338,7 @@ def main():
             cover_data=st.session_state["cover_data"],
             page1_data=st.session_state["page1_data"],
             page2_data=st.session_state["page2_data"],
-            page3_data=st.session_state["page3_data"],
-            page4_data=st.session_state["page4_data"]
+            page3_data=st.session_state["page3_data"]
         )
         st.download_button(
             "Download PDF",
@@ -382,13 +351,13 @@ def main():
 # PDF GENERATION FUNCTION
 #####################################
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
-                      cover_data, page1_data, page2_data, page3_data, page4_data):
+                      cover_data, page1_data, page2_data, page3_data):
     pdf = PDF("P", "mm", "A4")
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_text_color(0, 0, 0)
     effective_width = 180
-    total_pages = 5  # cover + 4 pages
+    total_pages = 4  # Cover, Page 1, Page 2, Page 3
 
     # IMPORTANT: Use a Unicode font for characters like "₃"
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
@@ -496,14 +465,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    # Use cover_data for client info:
     pdf.cell(effective_width, 6, f"Client: {cover_data['client_name']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Address: {cover_data['address_line']}", ln=True, align="L")
     pdf.ln(4)
     
     pdf.set_font("DejaVu", "B", 10)
     headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]
+    widths = [30, 40, 30, 40, 40]  # total=180
     for h, w in zip(headers, widths):
         pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln(7)
@@ -516,7 +484,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.ln(7)
     
     # ---------------------------
-    # 2. PAGE 2: ANALYTICAL RESULTS (Separate table for each Lab ID)
+    # 2. PAGE 2: ANALYTICAL RESULTS (Separate table for each Lab ID and Sample ID)
     # ---------------------------
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
@@ -536,17 +504,19 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         key = (r_["lab_id"], r_.get("sample_id", ""))
         results_by_lab[key].append(r_)
     
+    # New column widths for analytical results table (sum=180)
+    widths2 = [40, 35, 20, 20, 20, 30, 15]
+    
     for (lab_id, sample_id), results_list in results_by_lab.items():
         header_text = f"Analytical Results for Lab ID: {lab_id}"
         if sample_id:
-            header_text += f", Sample ID: {sample_id}"
+            header_text += f" ( Sample ID: {sample_id} )"
         pdf.set_font("DejaVu", "B", 12)
         pdf.cell(0, 8, header_text, ln=True, align="L")
         pdf.ln(2)
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
         headers2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-        widths2 = [35, 30, 15, 15, 15, 30, 15]
         for h, w in zip(headers2, widths2):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
@@ -578,6 +548,9 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     for qc_ in page3_data["qc_entries"]:
         qc_by_method[qc_["qc_method"]].append(qc_)
     
+    # New column widths for QC table (sum=180)
+    widths_qc = [45, 20, 20, 20, 40, 35]
+    
     for method, qcs in qc_by_method.items():
         pdf.set_font("DejaVu", "B", 10)
         pdf.cell(0, 5, f"QC Batch: {qcs[0]['qc_batch']}", ln=True, align="L")
@@ -587,9 +560,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
-        # Updated headers including "Method Blank Conc."
         headers_qc = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
-        widths_qc = [35, 15, 15, 15, 40, 20]  # adjust widths as needed (total ~140)
         for h, w in zip(headers_qc, widths_qc):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
@@ -607,38 +578,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
             for val, w in zip(row_vals, widths_qc):
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
-    
         pdf.ln(10)
-    
-    # ---------------------------
-    # 4. PAGE 4: QC DATA CROSS REFERENCE TABLE
-    # ---------------------------
-    pdf.add_page()
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "QC DATA CROSS REFERENCE TABLE", ln=True, align="C")
-    pdf.ln(2)
-    
-    pdf.set_font("DejaVu", "B", 10)
-    pdf.set_fill_color(230, 230, 230)
-    headers4 = ["Lab ID", "Sample ID", "Prep Method", "Analysis Method", "Prep Batch", "Batch Analysis"]
-    widths4 = [25, 30, 30, 30, 35, 30]
-    for h, w in zip(headers4, widths4):
-        pdf.cell(w, 7, h, border=1, align="C", fill=True)
-    pdf.ln(7)
-    
-    pdf.set_font("DejaVu", "", 10)
-    for c_ in page4_data["cross_refs"]:
-        row_vals = [
-            c_["lab_id"],
-            c_["sample_id"],
-            c_["prep_method"],
-            c_["analysis_method"],
-            c_["prep_batch"],
-            c_["batch_analysis"]
-        ]
-        for val, w in zip(row_vals, widths4):
-            pdf.cell(w, 7, str(val), border=1, align="C")
-        pdf.ln(7)
     
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
