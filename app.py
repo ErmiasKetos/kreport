@@ -245,11 +245,18 @@ def render_sample_summary_page():
 
     st.write("**Current Water Samples:**")
     if p1["samples"]:
-        for i, s_ in enumerate(p1["samples"], 1):
-            st.write(f"{i}. Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, "
-                     f"Collected: {s_['date_collected']}, Received: {s_['date_received']}")
+        for i, s_ in enumerate(p1["samples"]):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.write(f"**{i+1}.** Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, "
+                         f"Collected: {s_['date_collected']}, Received: {s_['date_received']}")
+            with col2:
+                if st.button(f"❌ Remove", key=f"del_sample_{i}"):
+                    del p1["samples"][i]
+                    st.rerun()
     else:
         st.info("No samples yet.")
+
 
     render_nav_buttons()
 
@@ -315,14 +322,22 @@ def render_analytical_results_page():
                     "unit": un
                 })
 
+  
     st.write("**Current Analytical Results:**")
     if p2["results"]:
-        for i, r_ in enumerate(p2["results"],1):
-            st.write(f"{i}. Lab ID: {r_['lab_id']} (Sample ID: {r_.get('sample_id','')}), "
-                     f"Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, "
-                     f"MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
+        for i, r_ in enumerate(p2["results"]):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.write(f"**{i+1}.** Lab ID: {r_['lab_id']} (Sample ID: {r_.get('sample_id','')}), "
+                         f"Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, "
+                         f"MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
+            with col2:
+                if st.button(f"❌ Remove", key=f"del_result_{i}"):
+                    del p2["results"][i]
+                    st.rerun()
     else:
         st.info("No results yet.")
+
 
     render_nav_buttons()
 
@@ -364,12 +379,19 @@ def render_quality_control_page():
 
     st.write("**Current QC Data:**")
     if p3["qc_entries"]:
-        for i, qc_ in enumerate(p3["qc_entries"],1):
-            st.write(f"{i}. QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
-                     f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
-                     f"PQL: {qc_['pql']}, Blank: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}")
+        for i, qc_ in enumerate(p3["qc_entries"]):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
+                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
+                         f"PQL: {qc_['pql']}, Blank: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}")
+            with col2:
+                if st.button(f"❌ Remove", key=f"del_qc_{i}"):
+                    del p3["qc_entries"][i]
+                    st.rerun()
     else:
         st.info("No QC entries yet.")
+
 
     render_nav_buttons()
 
