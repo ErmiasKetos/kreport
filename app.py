@@ -226,12 +226,13 @@ def render_sample_summary_page():
         p1["client_address"] = st.session_state["cover_data"].get("address_line","")
         p1["project_id"] = "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
 
+
     with st.form("sample_form", clear_on_submit=True):
         lab_id = st.text_input("Lab ID (blank=auto)", "")
         s_id = st.text_input("Sample ID","")
         mat = st.text_input("Matrix","Water")
         d_collect = st.text_input("Date Collected", datetime.date.today().strftime("%m/%d/%Y"))
-        d_recv = st.text_input("Date Received", datetime.date.today().strftime("%m/%d/%Y"))
+        d_recv = st.text_input("Date Received", st.session_state["cover_data"]["date_samples_received"])  # Ensure consistency
         if st.form_submit_button("Add Sample"):
             if not lab_id.strip():
                 lab_id = generate_id()
@@ -242,6 +243,7 @@ def render_sample_summary_page():
                 "date_collected": d_collect,
                 "date_received": d_recv
             })
+
 
     st.write("**Current Water Samples:**")
     if p1["samples"]:
@@ -265,11 +267,13 @@ def render_analytical_results_page():
     p2 = st.session_state["page2_data"]
     p2.setdefault("results", [])
 
+    
     if "workorder_name" not in p2:
         p2["workorder_name"] = st.session_state["cover_data"].get("work_order","WO-UNKNOWN")
-        p2["global_analysis_date"] = datetime.date.today().strftime("%m/%d/%Y") + " 10:00"
+        p2["global_analysis_date"] = st.session_state["cover_data"].get("date_reported")  # Ensuring consistency
         p2["report_id"] = st.session_state["page1_data"].get("report_id","0000000")
         p2["report_date"] = st.session_state["page1_data"].get("report_date",datetime.date.today().strftime("%m/%d/%Y"))
+
 
     st.text(f"Work Order: {p2['workorder_name']}")
     st.text(f"Report ID: {p2['report_id']}")
@@ -279,24 +283,22 @@ def render_analytical_results_page():
     analyte = st.selectbox("Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("Method", analyte_to_methods[analyte])
 
+ 
     with st.form("analytical_form", clear_on_submit=True):
         st.write(f"Selected Analyte: {analyte}")
         st.write(f"Selected Method: {method}")
-
+    
         sample_lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"].get("samples",[])]
         if sample_lab_ids:
             chosen_lab_id = st.selectbox("Lab ID", sample_lab_ids)
-            # find sample id
-            s_id = ""
-            for s_ in st.session_state["page1_data"]["samples"]:
-                if s_["lab_id"] == chosen_lab_id:
-                    s_id = s_["sample_id"]
-                    break
+            s_id = next((s_["sample_id"] for s_ in st.session_state["page1_data"]["samples"] if s_["lab_id"] == chosen_lab_id), "")
             st.write(f"Corresponding Sample ID: {s_id}")
         else:
             chosen_lab_id = st.text_input("Lab ID","")
             s_id = ""
-
+    
+        analysis_date = st.text_input("Analysis Date", datetime.date.today().strftime("%m/%d/%Y"))  # New field for users to enter
+    
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             df = st.text_input("DF","")
@@ -307,12 +309,13 @@ def render_analytical_results_page():
         with c4:
             res = st.text_input("Result","ND")
         un = st.selectbox("Unit", ["mg/L","µg/L","µS/cm","none"])
-
+    
         if st.form_submit_button("Add Analytical Result"):
             if chosen_lab_id:
                 p2["results"].append({
                     "lab_id": chosen_lab_id,
                     "sample_id": s_id,
+                    "analysis_date": analysis_date,  # Store the analysis date per sample
                     "parameter": analyte,
                     "analysis": method,
                     "df": df,
@@ -473,9 +476,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     table_row("Analysis Type:", cover_data["analysis_type"])
     table_row("COC #:", cover_data["coc_number"])
     table_row("PO #:", cover_data["po_number"])
-    table_row("Date Samples Received:", cover_data["date_samples_received"])
+    table_row("Date Samples Received:", cover_data["date_samples_received"])  # Use consistent date
     table_row("Date Reported:", cover_data["date_reported"])
     pdf.ln(4)
+    
+    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")  # Ensure consistency
+
 
     pdf.set_font("DejaVu", "B", 10)
     pdf.set_fill_color(240, 240, 240)
