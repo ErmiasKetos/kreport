@@ -227,22 +227,27 @@ def render_sample_summary_page():
         p1["project_id"] = "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
 
 
+    
+  
     with st.form("sample_form", clear_on_submit=True):
         lab_id = st.text_input("Lab ID (blank=auto)", "")
-        s_id = st.text_input("Sample ID","")
-        mat = st.text_input("Matrix","Water")
-        d_collect = st.text_input("Date Collected", datetime.date.today().strftime("%m/%d/%Y"))
-        d_recv = st.text_input("Date Received", st.session_state["cover_data"]["date_samples_received"])  # Ensure consistency
+        sample_id = st.text_input("Sample ID", "")
+        matrix = st.text_input("Matrix", "Water")
+        date_collected = st.text_input("Date Collected", datetime.date.today().strftime("%m/%d/%Y"))
+        date_received = st.text_input("Date Received", st.session_state["cover_data"].get("date_samples_received", ""))  # Ensure consistency
+        
         if st.form_submit_button("Add Sample"):
             if not lab_id.strip():
                 lab_id = generate_id()
-            p1["samples"].append({
+            st.session_state["page1_data"]["samples"].append({
                 "lab_id": lab_id,
-                "sample_id": s_id,
-                "matrix": mat,
-                "date_collected": d_collect,
-                "date_received": d_recv
+                "sample_id": sample_id,
+                "matrix": matrix,
+                "date_collected": date_collected,
+                "date_received": date_received  # Ensures it remains the same as Date Samples Received
             })
+
+
 
 
     st.write("**Current Water Samples:**")
@@ -270,7 +275,7 @@ def render_analytical_results_page():
     
     if "workorder_name" not in p2:
         p2["workorder_name"] = st.session_state["cover_data"].get("work_order","WO-UNKNOWN")
-        p2["global_analysis_date"] = st.session_state["cover_data"].get("date_reported")  # Ensuring consistency
+        p2["analysis_date"] = st.session_state["cover_data"].get("date_reported")  # Ensuring consistency
         p2["report_id"] = st.session_state["page1_data"].get("report_id","0000000")
         p2["report_date"] = st.session_state["page1_data"].get("report_date",datetime.date.today().strftime("%m/%d/%Y"))
 
@@ -278,7 +283,7 @@ def render_analytical_results_page():
     st.text(f"Work Order: {p2['workorder_name']}")
     st.text(f"Report ID: {p2['report_id']}")
     st.text(f"Report Date: {p2['report_date']}")
-    st.text(f"Global Analysis Date: {p2['global_analysis_date']}")
+    st.text(f"Global Analysis Date: {p2['analysis_date']}")
 
     analyte = st.selectbox("Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("Method", analyte_to_methods[analyte])
@@ -480,7 +485,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     table_row("Date Reported:", cover_data["date_reported"])
     pdf.ln(4)
     
-    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")  # Ensure consistency
+    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['analysis_date']}", ln=True, align="L")  # Ensure consistency
 
 
     pdf.set_font("DejaVu", "B", 10)
@@ -576,7 +581,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['analysis_date']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
     
@@ -620,7 +625,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['analysis_date']}", ln=True, align="L")
     pdf.ln(5)
     
     # Group QC data by qc_method
