@@ -682,7 +682,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(0, 5, "Analysis Date: (See per-sample details)", ln=True, align="L")
     pdf.ln(5)
     
     # Group QC data by qc_method
