@@ -409,6 +409,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf = PDF("P", "mm", "A4")
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
+    p2 = page2_data if page2_data else {"results": []}
     pdf.set_text_color(0, 0, 0)
     effective_width = 180
     total_pages = 4  # Cover, Page 1, Page 2, Page 3
