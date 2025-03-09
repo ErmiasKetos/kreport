@@ -231,7 +231,7 @@ def render_sample_summary_page():
         lab_id = st.text_input("Lab ID (blank=auto)", "")
         s_id = st.text_input("Sample ID","")
         mat = st.text_input("Matrix","Water")
-        d_collect = st.text_input("Date Collected",")
+        d_collect = st.text_input("Date Collected","")
         d_recv = st.text_input("Date Received", st.session_state["cover_data"]["date_samples_received"])  # Ensure consistency
         if st.form_submit_button("Add Sample"):
             if not lab_id.strip():
