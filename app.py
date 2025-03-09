@@ -267,43 +267,45 @@ def render_sample_summary_page():
 
     render_nav_buttons()
 
+
 def render_analytical_results_page():
     st.header("Analytical Results")
     p2 = st.session_state["page2_data"]
     p2.setdefault("results", [])
 
-    
+    # We no longer keep a single "global" analysis date here
     if "workorder_name" not in p2:
         p2["workorder_name"] = st.session_state["cover_data"].get("work_order","WO-UNKNOWN")
-        p2["analysis_date"] = st.session_state["cover_data"].get("date_reported")  # Ensuring consistency
         p2["report_id"] = st.session_state["page1_data"].get("report_id","0000000")
-        p2["report_date"] = st.session_state["page1_data"].get("report_date",datetime.date.today().strftime("%m/%d/%Y"))
+        p2["report_date"] = st.session_state["page1_data"].get("report_date", datetime.date.today().strftime("%m/%d/%Y"))
 
-
+    # Display top text, but remove or rename the "Global Analysis Date"
     st.text(f"Work Order: {p2['workorder_name']}")
     st.text(f"Report ID: {p2['report_id']}")
     st.text(f"Report Date: {p2['report_date']}")
-    st.text(f"Global Analysis Date: {p2['analysis_date']}")
 
     analyte = st.selectbox("Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("Method", analyte_to_methods[analyte])
 
- 
     with st.form("analytical_form", clear_on_submit=True):
         st.write(f"Selected Analyte: {analyte}")
         st.write(f"Selected Method: {method}")
-    
+
         sample_lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"].get("samples",[])]
         if sample_lab_ids:
             chosen_lab_id = st.selectbox("Lab ID", sample_lab_ids)
-            s_id = next((s_["sample_id"] for s_ in st.session_state["page1_data"]["samples"] if s_["lab_id"] == chosen_lab_id), "")
+            s_id = next((s_["sample_id"]
+                         for s_ in st.session_state["page1_data"]["samples"]
+                         if s_["lab_id"] == chosen_lab_id), "")
             st.write(f"Corresponding Sample ID: {s_id}")
         else:
             chosen_lab_id = st.text_input("Lab ID","")
             s_id = ""
-    
-        analysis_date = st.text_input("Analysis Date", datetime.date.today().strftime("%m/%d/%Y"))  # New field for users to enter
-    
+
+        # Let the user enter an Analysis Date specifically for this sample:
+        analysis_date = st.text_input("Analysis Date",
+                                      datetime.date.today().strftime("%m/%d/%Y"))
+
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             df = st.text_input("DF","")
@@ -314,13 +316,13 @@ def render_analytical_results_page():
         with c4:
             res = st.text_input("Result","ND")
         un = st.selectbox("Unit", ["mg/L","µg/L","µS/cm","none"])
-    
+
         if st.form_submit_button("Add Analytical Result"):
             if chosen_lab_id:
                 p2["results"].append({
                     "lab_id": chosen_lab_id,
                     "sample_id": s_id,
-                    "analysis_date": analysis_date,  # Store the analysis date per sample
+                    "analysis_date": analysis_date,  # store per-sample
                     "parameter": analyte,
                     "analysis": method,
                     "df": df,
@@ -330,21 +332,30 @@ def render_analytical_results_page():
                     "unit": un
                 })
 
-  
+    # Show the table with the per-sample Analysis Date in each record
     st.write("**Current Analytical Results:**")
     if p2["results"]:
         for i, r_ in enumerate(p2["results"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** Lab ID: {r_['lab_id']} (Sample ID: {r_.get('sample_id','')}), "
-                         f"Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, "
-                         f"MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
+                st.write(
+                    f"**{i+1}.** Lab ID: {r_['lab_id']} "
+                    f"(Sample ID: {r_.get('sample_id','')}), "
+                    f"Analysis Date: {r_['analysis_date']}, "
+                    f"Parameter: {r_['parameter']}, "
+                    f"Analysis: {r_['analysis']}, DF: {r_['df']}, "
+                    f"MDL: {r_['mdl']}, PQL: {r_['pql']}, "
+                    f"Result: {r_['result']} {r_['unit']}"
+                )
             with col2:
                 if st.button(f"❌ Remove", key=f"del_result_{i}"):
                     del p2["results"][i]
                     st.rerun()
     else:
         st.info("No results yet.")
+
+    render_nav_buttons()
+
 
 
     render_nav_buttons()
@@ -625,7 +636,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Global Analysis Date: {page2_data['analysis_date']}", ln=True, align="L")
+    pdf.cell(0, 5, f"Analysis Date: {page2_data['analysis_date']}", ln=True, align="L")
     pdf.ln(5)
     
     # Group QC data by qc_method
