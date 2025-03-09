@@ -277,7 +277,7 @@ def render_analytical_results_page():
     st.text(f"Work Order: {p2['workorder_name']}")
     st.text(f"Report ID: {p2['report_id']}")
     st.text(f"Report Date: {p2['report_date']}")
-    st.text(f"Global Analysis Date: {p2['global_analysis_date']}")
+    st.text("Analysis Date will be shown per sample.")
 
     analyte = st.selectbox("Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("Method", analyte_to_methods[analyte])
@@ -603,7 +603,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")
+   if p2["results"]:
+        first_analysis_date = p2["results"][0].get("analysis_date", "N/A")  # Use first sample's analysis date
+    else:
+        first_analysis_date = "N/A"
+    
+    pdf.cell(effective_width, 6, f"Analysis Date: {first_analysis_date}", ln=True, align="L")
+
     pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.ln(4)
     
