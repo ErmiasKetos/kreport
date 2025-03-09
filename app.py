@@ -465,21 +465,22 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.set_fill_color(255, 255, 255)
         pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L", fill=True)
 
-    table_row("Work Order:", cover_data["work_order"])
-    table_row("Project:", cover_data["project_name"])
-    table_row("Analysis Type:", cover_data["analysis_type"])
-    table_row("COC #:", cover_data["coc_number"])
-    table_row("PO #:", cover_data["po_number"])
-    table_row("Date Samples Received:", cover_data["date_samples_received"])  # Use consistent date
-    table_row("Date Reported:", cover_data["date_reported"])
-    pdf.ln(4)
-    
-    if p2["results"]:
-        first_analysis_date = p2["results"][0]["analysis_date"]  # Use first sample's analysis date as the main report date
+    # Fetch first sample's analysis date (or "N/A" if no samples)
+    if p2.get("results"):
+        first_analysis_date = p2["results"][0].get("analysis_date", "N/A")
     else:
-        first_analysis_date = "N/A"  # Default if no data is available
+        first_analysis_date = "N/A"
     
-    pdf.cell(effective_width, 6, f"Analysis Date: {first_analysis_date}", ln=True, align="L")
+    table_row("Work Order:", cover_data.get("work_order", "N/A"))
+    table_row("Project:", cover_data.get("project_name", "N/A"))
+    table_row("Analysis Type:", cover_data.get("analysis_type", "N/A"))
+    table_row("COC #:", cover_data.get("coc_number", "N/A"))
+    table_row("PO #:", cover_data.get("po_number", "N/A"))
+    table_row("Date Samples Received:", cover_data.get("date_samples_received", "N/A"))
+    table_row("Date Reported:", cover_data.get("date_reported", "N/A"))
+    table_row("Analysis Date:", first_analysis_date)  
+    pdf.ln(4)
+
 
 
 
