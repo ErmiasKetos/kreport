@@ -173,8 +173,8 @@ def render_cover_page():
         cover["country"] = ""
         cover["phone"] = ""
         default_date = datetime.date.today().strftime("%m/%d/%Y")
-        cover["date_samples_received"] = default_date
-        cover["date_reported"] = default_date
+        cover["date_samples_received"] = ""
+        cover["date_reported"] = ""
         cover["analysis_type"] = "Environmental"
         cover["coc_number"] = generate_coc_number()
         cover["po_number"] = generate_po_number()
@@ -231,7 +231,7 @@ def render_sample_summary_page():
         lab_id = st.text_input("Lab ID (blank=auto)", "")
         s_id = st.text_input("Sample ID","")
         mat = st.text_input("Matrix","Water")
-        d_collect = st.text_input("Date Collected", datetime.date.today().strftime("%m/%d/%Y"))
+        d_collect = st.text_input("Date Collected",")
         d_recv = st.text_input("Date Received", st.session_state["cover_data"]["date_samples_received"])  # Ensure consistency
         if st.form_submit_button("Add Sample"):
             if not lab_id.strip():
@@ -270,7 +270,6 @@ def render_analytical_results_page():
     
     if "workorder_name" not in p2:
         p2["workorder_name"] = st.session_state["cover_data"].get("work_order","WO-UNKNOWN")
-        p2["global_analysis_date"] = st.session_state["cover_data"].get("date_reported")  # Ensuring consistency
         p2["report_id"] = st.session_state["page1_data"].get("report_id","0000000")
         p2["report_date"] = st.session_state["page1_data"].get("report_date",datetime.date.today().strftime("%m/%d/%Y"))
 
@@ -474,7 +473,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     table_row("Date Reported:", cover_data["date_reported"])
     pdf.ln(4)
     
-    pdf.cell(effective_width, 6, f"Analysis Date: {page2_data['global_analysis_date']}", ln=True, align="L")  # Ensure consistency
+    if p2["results"]:
+        first_analysis_date = p2["results"][0]["analysis_date"]  # Use first sample's analysis date as the main report date
+    else:
+        first_analysis_date = "N/A"  # Default if no data is available
+    
+    pdf.cell(effective_width, 6, f"Analysis Date: {first_analysis_date}", ln=True, align="L")
+
 
 
     pdf.set_font("DejaVu", "B", 10)
@@ -618,16 +623,28 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.ln(2)
         pdf.set_font("DejaVu", "B", 10)
         pdf.set_fill_color(230, 230, 230)
-        headers2 = ["Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
+        headers2 = ["Analysis Date", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
+        widths2 = [30, 35, 30, 15, 15, 15, 30, 15]  # Adjust widths accordingly
+
         for h, w in zip(headers2, widths2):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
         pdf.set_font("DejaVu", "", 10)
         for row in results_list:
-            row_data = [row["parameter"], row["analysis"], row["df"], row["mdl"], row["pql"], row["result"], row["unit"]]
+            row_data = [
+                row["analysis_date"],  # Show user-entered analysis date
+                row["parameter"],
+                row["analysis"],
+                row["df"],
+                row["mdl"],
+                row["pql"],
+                row["result"],
+                row["unit"]
+            ]
             for val, w in zip(row_data, widths2):
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
+
         pdf.ln(10)
     
     # ---------------------------
