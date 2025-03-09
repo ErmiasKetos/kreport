@@ -235,15 +235,17 @@ def render_sample_summary_page():
         s_id = st.text_input("Sample ID","")
         mat = st.text_input("Matrix","Water")
         d_collect = st.text_input("Date Collected", "")
-        d_recv = st.text_input("Date Received", cover.get("date_samples_received", ""))  # Ensures consistency
+        d_recv = st.text_input("Date Received", st.session_state["cover_data"].get("date_samples_received", ""))
+
     
         if st.form_submit_button("Add Sample"):
             if not lab_id.strip():
                 lab_id = generate_id()
             
             # Ensure "Date Samples Received" is updated if empty
-            if not cover["date_samples_received"]:
-                cover["date_samples_received"] = d_recv
+            if not st.session_state["cover_data"].get("date_samples_received"):
+                st.session_state["cover_data"]["date_samples_received"] = d_recv
+
     
             p1["samples"].append({
                 "lab_id": lab_id,
