@@ -274,6 +274,10 @@ def render_analytical_results_page():
     p2.setdefault("results", [])
 
     # We no longer keep a single "global" analysis date here
+    if "analysis_date" not in p2:
+        p2["analysis_date"] = datetime.date.today().strftime("%m/%d/%Y")
+
+    p2["analysis_date"] = st.text_input("Analysis Date (Applies to all samples)", value=p2["analysis_date"])
     if "workorder_name" not in p2:
         p2["workorder_name"] = st.session_state["cover_data"].get("work_order","WO-UNKNOWN")
         p2["report_id"] = st.session_state["page1_data"].get("report_id","0000000")
