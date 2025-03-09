@@ -4,6 +4,7 @@ import datetime
 import io
 import random
 import string
+import requests
 from collections import defaultdict
 
 
@@ -62,24 +63,36 @@ def get_date_input(label, default_str=""):
 
 def address_autofill(label, default=""):
     """
-    Dummy address autofill function.
-    In production, integrate with SmartyStreets API:
-      - Use your API credentials.
-      - Make a GET request to the SmartyStreets suggest endpoint.
-      - Parse and return suggestions.
-    For demonstration, we return dummy suggestions if the input is long enough.
+    Address autofill using the free Nominatim API.
+    Note: Nominatim is free but has usage limits and requires a custom User-Agent.
     """
-    # Initial text input for the address field.
     query = st.text_input(label, value=default, key=label)
     suggestions = []
-    if len(query) > 3:
-        # Dummy suggestions – replace with real API calls.
-        suggestions = [f"{query} Avenue", f"{query} Street", f"{query} Blvd"]
+    
+    if len(query) >= 3:
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": query,
+            "format": "json",
+            "addressdetails": 1,
+            "limit": 3
+        }
+        headers = {"User-Agent": "YourAppName/1.0 (your.email@example.com)"}
+        response = requests.get(url, params=params, headers=headers)
+        if response.status_code == 200:
+            results = response.json()
+            for result in results:
+                display_address = result.get("display_name", "")
+                suggestions.append(display_address)
+        else:
+            st.error("Error fetching address suggestions from Nominatim.")
+    
     if suggestions:
-        # Let user select from suggestions.
         selected = st.selectbox(f"Select a suggested {label.lower()}:", suggestions, key=label+"_suggestions")
         return selected
+    
     return query
+
 
 # Mapping of analyte to list of possible methods
 analyte_to_methods = {
@@ -221,11 +234,11 @@ def render_cover_page():
 
     cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name",""))
     cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name",""))
-    cover["street"] = st.text_input("Street Address", value=cover.get("street",""))
-    cover["city"] = st.text_input("City", value=cover.get("city",""))
-    cover["state"] = st.text_input("State/Province", value=cover.get("state",""))
-    cover["zip"] = st.text_input("Zip Code", value=cover.get("zip",""))
-    cover["country"] = st.text_input("Country", value=cover.get("country",""))
+    cover["street"] = address_autofill("Street Address", default=cover.get("street", ""))
+    cover["city"] = address_autofill("City", default=cover.get("city", ""))
+    cover["state"] = address_autofill("State/Province", default=cover.get("state", ""))
+    cover["zip"] = address_autofill("Zip Code", default=cover.get("zip", ""))
+    cover["country"] = address_autofill("Country", default=cover.get("country", ""))
     cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type","Environmental"))
     cover["date_samples_received"] = get_date_input("Date Samples Received", default_str=cover.get("date_samples_received", ""))
     cover["date_reported"] = get_date_input("Date Reported",default_str=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
