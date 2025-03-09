@@ -62,13 +62,13 @@ def get_date_input(label, default_str=""):
     return selected_date.strftime("%m/%d/%Y")
 
 
+
 def address_autofill_field(label, default=""):
     """
     Address autofill using the free Nominatim API.
-    Returns a tuple: (selected_address_str, address_details_dict).
-    If no suggestion is selected, address_details_dict is None.
+    Returns a tuple: (selected_street, address_details_dict).
+    The selected_street will contain only the street-level information.
     """
-    # Capture the initial query input.
     query = st.text_input(label, value=default, key=label)
     suggestions = []
     address_details = None
@@ -85,19 +85,23 @@ def address_autofill_field(label, default=""):
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
             results = response.json()
-            # Create a list of tuples: (display_name, address dict)
             for candidate in results:
-                display_name = candidate.get("display_name", "")
                 addr = candidate.get("address", {})
-                suggestions.append((display_name, addr))
+                # Extract only the street-level info using house_number and road.
+                house = addr.get("house_number", "")
+                road = addr.get("road", "")
+                # If both exist, build a street string. Otherwise, fall back.
+                if house or road:
+                    street = f"{house} {road}".strip()
+                else:
+                    street = candidate.get("display_name", "")  # fallback (but this might include full details)
+                suggestions.append((street, addr))
         else:
             st.error("Error fetching address suggestions from Nominatim.")
     
     if suggestions:
-        # Build a list of display strings for the selectbox.
         display_names = [s[0] for s in suggestions]
         selected = st.selectbox(f"Select a suggested {label.lower()}:", display_names, key=label+"_suggestions")
-        # Retrieve the detailed address for the selected suggestion.
         for disp, addr in suggestions:
             if disp == selected:
                 address_details = addr
@@ -105,6 +109,7 @@ def address_autofill_field(label, default=""):
         return selected, address_details
 
     return query, None
+
 
 
 # Mapping of analyte to list of possible methods
@@ -271,8 +276,11 @@ def render_cover_page():
 
     # rebuild address
     cover["address_line"] = (
-        cover["street"] + ", " + cover["city"] + ", " +
-        cover["state"] + " " + cover["zip"] + ", " + cover["country"]
+        cover["street"] + ", " + 
+        cover["city"] + ", " +
+        cover["state"] + " " + 
+        cover["zip"] + ", " + 
+        cover["country"]
     )
 
     sample_type = st.selectbox("Sample Type", options=["GW","DW","WW","IW","SW"], index=0)
