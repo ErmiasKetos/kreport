@@ -489,7 +489,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     table_row("COC #:", cover_data.get("coc_number", "N/A"))
     table_row("PO #:", cover_data.get("po_number", "N/A"))
     table_row("Date Samples Received:", cover_data.get("date_samples_received", "N/A"))
-    table_row("Date Reported:", cover_data.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
+    table_row("Date Reported:", cover_data.get("report_date", datetime.date.today().strftime("%m/%d/%Y")))
     table_row("Analysis Date:", first_analysis_date)  
     pdf.ln(4)
 
