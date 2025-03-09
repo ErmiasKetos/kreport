@@ -191,6 +191,8 @@ def render_cover_page():
     cover["zip"] = st.text_input("Zip Code", value=cover.get("zip",""))
     cover["country"] = st.text_input("Country", value=cover.get("country",""))
     cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type","Environmental"))
+    cover["date_samples_received"] = st.text_input("Date Samples Received", value=cover.get("date_samples_received", st.session_state.get("page1_data", {}).get("samples", [{}])[0].get("date_received", "")))
+    cover["date_reported"] = st.text_input("Date Reported",value=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
     cover["comments"] = st.text_area("Comments/Narrative", value=cover.get("comments","None"))
 
     # rebuild address
@@ -227,15 +229,22 @@ def render_sample_summary_page():
         p1["project_id"] = "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
 
 
+    
     with st.form("sample_form", clear_on_submit=True):
         lab_id = st.text_input("Lab ID (blank=auto)", "")
         s_id = st.text_input("Sample ID","")
         mat = st.text_input("Matrix","Water")
-        d_collect = st.text_input("Date Collected","")
-        d_recv = st.text_input("Date Received", st.session_state["cover_data"]["date_samples_received"])  # Ensure consistency
+        d_collect = st.text_input("Date Collected", "")
+        d_recv = st.text_input("Date Received", cover.get("date_samples_received", ""))  # Ensures consistency
+    
         if st.form_submit_button("Add Sample"):
             if not lab_id.strip():
                 lab_id = generate_id()
+            
+            # Ensure "Date Samples Received" is updated if empty
+            if not cover["date_samples_received"]:
+                cover["date_samples_received"] = d_recv
+    
             p1["samples"].append({
                 "lab_id": lab_id,
                 "sample_id": s_id,
@@ -243,6 +252,7 @@ def render_sample_summary_page():
                 "date_collected": d_collect,
                 "date_received": d_recv
             })
+
 
 
     st.write("**Current Water Samples:**")
@@ -477,7 +487,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     table_row("COC #:", cover_data.get("coc_number", "N/A"))
     table_row("PO #:", cover_data.get("po_number", "N/A"))
     table_row("Date Samples Received:", cover_data.get("date_samples_received", "N/A"))
-    table_row("Date Reported:", cover_data.get("date_reported", "N/A"))
+    table_row("Date Reported:", cover_data.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
     table_row("Analysis Date:", first_analysis_date)  
     pdf.ln(4)
 
