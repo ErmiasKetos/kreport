@@ -436,12 +436,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.set_xy(10, 10)
         pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
     
-    # Move down to leave space after the logo
-    
-    #pdf.set_xy(140, 5)  # Shift up to align with the logo
-    #pdf.set_font("DejaVu", "B", 12)
-    #pdf.cell(0, 5, "KELP Laboratory", ln=True, align="R")
-    
     pdf.set_font("DejaVu", "", 10)
     pdf.set_xy(140,8)
     pdf.cell(0, 5, "520 Mercury Dr, Sunnyvale, CA 94085", ln=True, align="R")
@@ -545,11 +539,13 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     except Exception as e:
         pdf.set_font("DejaVu", "B", 12)
         pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
+        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
     
     # Move down to leave space after the logo
     
     #pdf.set_xy(140, 5)  # Shift up to align with the logo
+    # Add more space before the title so it doesn't clash with the header
+    pdf.ln(30)
     
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "SAMPLE SUMMARY", ln=True, align="C")
@@ -587,11 +583,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     except Exception as e:
         pdf.set_font("DejaVu", "B", 12)
         pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
+        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
     
     # Move down to leave space after the logo
     
     #pdf.set_xy(140, 5)  # Shift up to align with the logo
+    # Add more space before the title so it doesn't clash with the header
+    pdf.ln(30)
+    
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "ANALYTICAL RESULTS", ln=True, align="C")
     pdf.ln(2)
@@ -641,11 +640,14 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     except Exception as e:
         pdf.set_font("DejaVu", "B", 12)
         pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
+        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
     
     # Move down to leave space after the logo
     
     #pdf.set_xy(140, 5)  # Shift up to align with the logo
+
+    # Add more space before the title so it doesn't clash with the header
+    pdf.ln(30)
     
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "QUALITY CONTROL DATA", ln=True, align="C")
