@@ -603,7 +603,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-   if p2["results"]:
+    if p2["results"]:
         first_analysis_date = p2["results"][0].get("analysis_date", "N/A")  # Use first sample's analysis date
     else:
         first_analysis_date = "N/A"
