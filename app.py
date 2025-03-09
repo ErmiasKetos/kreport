@@ -63,12 +63,9 @@ def get_date_input(label, default_str=""):
 
 
 
+
 def address_autofill_field(label, default=""):
-    """
-    Address autofill using the free Nominatim API.
-    Returns a tuple: (selected_street, address_details_dict).
-    The selected_street will contain only the street-level information.
-    """
+
     query = st.text_input(label, value=default, key=label)
     suggestions = []
     address_details = None
@@ -87,26 +84,26 @@ def address_autofill_field(label, default=""):
             results = response.json()
             for candidate in results:
                 addr = candidate.get("address", {})
+                # Full address for display
+                full_address = candidate.get("display_name", "")
                 # Extract only the street-level info using house_number and road.
                 house = addr.get("house_number", "")
                 road = addr.get("road", "")
-                # If both exist, build a street string. Otherwise, fall back.
-                if house or road:
-                    street = f"{house} {road}".strip()
-                else:
-                    street = candidate.get("display_name", "")  # fallback (but this might include full details)
-                suggestions.append((street, addr))
+                street = f"{house} {road}".strip() if house or road else ""
+                suggestions.append((full_address, street, addr))
         else:
             st.error("Error fetching address suggestions from Nominatim.")
-    
+
     if suggestions:
+        # Use full address for the selectbox display.
         display_names = [s[0] for s in suggestions]
         selected = st.selectbox(f"Select a suggested {label.lower()}:", display_names, key=label+"_suggestions")
-        for disp, addr in suggestions:
+        for disp, street_val, addr in suggestions:
             if disp == selected:
                 address_details = addr
+                selected_street = street_val
                 break
-        return selected, address_details
+        return selected_street, address_details
 
     return query, None
 
