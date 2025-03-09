@@ -45,6 +45,42 @@ def generate_coc_number():
 def generate_po_number():
     return "PO-KL" + datetime.datetime.today().strftime("%Y%m") + ''.join(random.choices("0123456789", k=4))
 
+def get_date_input(label, default_str=""):
+    """
+    Wrapper for st.date_input that handles default string in '%m/%d/%Y' format.
+    Returns a string formatted as '%m/%d/%Y'.
+    """
+    if default_str:
+        try:
+            default_date = datetime.datetime.strptime(default_str, "%m/%d/%Y").date()
+        except Exception:
+            default_date = datetime.date.today()
+    else:
+        default_date = datetime.date.today()
+    selected_date = st.date_input(label, value=default_date)
+    return selected_date.strftime("%m/%d/%Y")
+
+def address_autofill(label, default=""):
+    """
+    Dummy address autofill function.
+    In production, integrate with SmartyStreets API:
+      - Use your API credentials.
+      - Make a GET request to the SmartyStreets suggest endpoint.
+      - Parse and return suggestions.
+    For demonstration, we return dummy suggestions if the input is long enough.
+    """
+    # Initial text input for the address field.
+    query = st.text_input(label, value=default, key=label)
+    suggestions = []
+    if len(query) > 3:
+        # Dummy suggestions – replace with real API calls.
+        suggestions = [f"{query} Avenue", f"{query} Street", f"{query} Blvd"]
+    if suggestions:
+        # Let user select from suggestions.
+        selected = st.selectbox(f"Select a suggested {label.lower()}:", suggestions, key=label+"_suggestions")
+        return selected
+    return query
+
 # Mapping of analyte to list of possible methods
 analyte_to_methods = {
     "Alkalinity": ["SM 2320 B-1997"],
@@ -191,8 +227,8 @@ def render_cover_page():
     cover["zip"] = st.text_input("Zip Code", value=cover.get("zip",""))
     cover["country"] = st.text_input("Country", value=cover.get("country",""))
     cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type","Environmental"))
-    cover["date_samples_received"] = st.text_input("Date Samples Received", value=cover.get("date_samples_received", st.session_state.get("page1_data", {}).get("samples", [{}])[0].get("date_received", "")))
-    cover["date_reported"] = st.text_input("Date Reported",value=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
+    cover["date_samples_received"] = get_date_input("Date Samples Received", default_str=cover.get("date_samples_received", ""))
+    cover["date_reported"] = get_date_input("Date Reported",default_str=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
     cover["comments"] = st.text_area("Comments/Narrative", value=cover.get("comments","None"))
 
     # rebuild address
@@ -234,8 +270,8 @@ def render_sample_summary_page():
         lab_id = st.text_input("Lab ID (blank=auto)", "")
         s_id = st.text_input("Sample ID","")
         mat = st.text_input("Matrix","Water")
-        d_collect = st.text_input("Date Collected", "")
-        d_recv = st.text_input("Date Received", st.session_state["cover_data"].get("date_samples_received", ""))
+        d_collect = get_date_input("Date Collected", "")
+        d_recv = get_date_input("Date Received", st.session_state["cover_data"].get("date_samples_received", ""))
 
     
         if st.form_submit_button("Add Sample"):
@@ -308,8 +344,8 @@ def render_analytical_results_page():
             chosen_lab_id = st.text_input("Lab ID","")
             s_id = ""
     
-        analysis_date = st.text_input("Analysis Date", datetime.date.today().strftime("%m/%d/%Y"))  # New field for users to enter
-    
+        
+        analysis_date = get_date_input("Analysis Date", datetime.date.today().strftime("%m/%d/%Y"))
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             df = st.text_input("DF","")
