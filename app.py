@@ -62,10 +62,7 @@ def get_date_input(label, default_str=""):
     return selected_date.strftime("%m/%d/%Y")
 
 def address_autofill(label, default=""):
-    """
-    Address autofill using the free Nominatim API.
-    Note: Nominatim is free but has usage limits and requires a custom User-Agent.
-    """
+
     query = st.text_input(label, value=default, key=label)
     suggestions = []
     
@@ -81,15 +78,23 @@ def address_autofill(label, default=""):
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
             results = response.json()
-            for result in results:
-                display_address = result.get("display_name", "")
-                suggestions.append(display_address)
+            for candidate in results:
+                display_name = candidate.get("display_name", "")
+                addr = candidate.get("address", {})
+                suggestions.append((display_name, addr)
         else:
             st.error("Error fetching address suggestions from Nominatim.")
     
     if suggestions:
-        selected = st.selectbox(f"Select a suggested {label.lower()}:", suggestions, key=label+"_suggestions")
-        return selected
+        # Build a list of display strings for the selectbox.
+        display_names = [s[0] for s in suggestions]
+        selected = st.selectbox(f"Select a suggested {label.lower()}:", display_names, key=label+"_suggestions")
+        # Retrieve the detailed address for the selected suggestion.
+        for disp, addr in suggestions:
+            if disp == selected:
+                address_details = addr
+                break
+        return selected, address_details
     
     return query
 
@@ -234,12 +239,24 @@ def render_cover_page():
 
     cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name",""))
     cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name",""))
-    cover["street"] = address_autofill("Street Address", default=cover.get("street", ""))
-    cover["city"] = address_autofill("City", default=cover.get("city", ""))
-    cover["state"] = address_autofill("State/Province", default=cover.get("state", ""))
-    cover["zip"] = address_autofill("Zip Code", default=cover.get("zip", ""))
-    cover["country"] = address_autofill("Country", default=cover.get("country", ""))
-    cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type","Environmental"))
+    selected_street, addr_details = address_autofill_field("Street Address", default=cover.get("street", ""))
+    cover["street"] = selected_street
+
+    
+    if addr_details:
+      
+        cover["city"] = addr_details.get("city", addr_details.get("town", addr_details.get("village", "")))
+        cover["state"] = addr_details.get("state", "")
+        cover["zip"] = addr_details.get("postcode", "")
+        cover["country"] = addr_details.get("country", "")
+    else:
+       
+        cover["city"] = st.text_input("City", value=cover.get("city", ""))
+        cover["state"] = st.text_input("State/Province", value=cover.get("state", ""))
+        cover["zip"] = st.text_input("Zip Code", value=cover.get("zip", ""))
+        cover["country"] = st.text_input("Country", value=cover.get("country", ""))
+    
+    cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type", "Environmental"))
     cover["date_samples_received"] = get_date_input("Date Samples Received", default_str=cover.get("date_samples_received", ""))
     cover["date_reported"] = get_date_input("Date Reported",default_str=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
     cover["comments"] = st.text_area("Comments/Narrative", value=cover.get("comments","None"))
