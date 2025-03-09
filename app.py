@@ -61,11 +61,18 @@ def get_date_input(label, default_str=""):
     selected_date = st.date_input(label, value=default_date)
     return selected_date.strftime("%m/%d/%Y")
 
-def address_autofill(label, default=""):
 
+def address_autofill_field(label, default=""):
+    """
+    Address autofill using the free Nominatim API.
+    Returns a tuple: (selected_address_str, address_details_dict).
+    If no suggestion is selected, address_details_dict is None.
+    """
+    # Capture the initial query input.
     query = st.text_input(label, value=default, key=label)
     suggestions = []
-    
+    address_details = None
+
     if len(query) >= 3:
         url = "https://nominatim.openstreetmap.org/search"
         params = {
@@ -78,10 +85,11 @@ def address_autofill(label, default=""):
         response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
             results = response.json()
+            # Create a list of tuples: (display_name, address dict)
             for candidate in results:
                 display_name = candidate.get("display_name", "")
                 addr = candidate.get("address", {})
-                suggestions.append((display_name, addr)
+                suggestions.append((display_name, addr))
         else:
             st.error("Error fetching address suggestions from Nominatim.")
     
@@ -95,8 +103,8 @@ def address_autofill(label, default=""):
                 address_details = addr
                 break
         return selected, address_details
-    
-    return query
+
+    return query, None
 
 
 # Mapping of analyte to list of possible methods
