@@ -6,7 +6,7 @@ import random
 import string
 import requests
 from collections import defaultdict
-
+import math
 
 def reset_app():
     """Clears all session state variables and reloads the app."""
@@ -56,12 +56,10 @@ def get_date_input(label, default_str=""):
     selected_date = st.date_input(label, value=default_date)
     return selected_date.strftime("%m/%d/%Y")
 
-
 def address_autofill_field(label, default=""):
     query = st.text_input(label, value=default, key=label)
     suggestions = []
     address_details = None
-
     if len(query) >= 3:
         url = "https://nominatim.openstreetmap.org/search"
         params = {
@@ -84,7 +82,6 @@ def address_autofill_field(label, default=""):
                 suggestions.append((full_address, street, addr))
         else:
             st.error("Error fetching address suggestions from Nominatim.")
-
     if suggestions:
         display_names = [s[0] for s in suggestions]
         selected = st.selectbox(f"Select a suggested {label.lower()}:", display_names, key=label+"_suggestions")
@@ -94,9 +91,28 @@ def address_autofill_field(label, default=""):
                 selected_street = street_val
                 break
         return selected_street, address_details
-
     return query, None
 
+# Helper function to draw a table row with text wrapping
+def draw_table_row(pdf, data, widths, line_height=5, border=1, align='C', fill=False):
+    x_start = pdf.get_x()
+    y_start = pdf.get_y()
+    max_lines = 1
+    for text, w in zip(data, widths):
+        # Estimate number of lines by dividing the string width by the cell width
+        text_width = pdf.get_string_width(text)
+        lines = math.ceil(text_width / w)
+        if lines < 1:
+            lines = 1
+        if lines > max_lines:
+            max_lines = lines
+    cell_height = line_height * max_lines
+    x = x_start
+    for text, w in zip(data, widths):
+        pdf.set_xy(x, y_start)
+        pdf.multi_cell(w, line_height, text, border=border, align=align, fill=fill)
+        x += w
+    pdf.set_xy(x_start, y_start + cell_height)
 
 # Mapping of analyte to list of possible methods
 analyte_to_methods = {
@@ -221,8 +237,8 @@ def render_cover_page():
         cover["comments"] = "None"
         cover["signatory_name"] = ""
         cover["signatory_title"] = "Lab Manager"
-    cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name",""))
-    cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name",""))
+    cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name", ""))
+    cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name", ""))
     selected_street, addr_details = address_autofill_field("Street Address", default=cover.get("street", ""))
     cover["street"] = selected_street
     if addr_details:
@@ -238,15 +254,15 @@ def render_cover_page():
     cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type", "Environmental"))
     cover["date_samples_received"] = get_date_input("Date Samples Received", default_str=cover.get("date_samples_received", ""))
     cover["date_reported"] = get_date_input("Date Reported", default_str=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
-    cover["comments"] = st.text_area("Comments/Narrative", value=cover.get("comments","None"))
+    cover["comments"] = st.text_area("Comments/Narrative", value=cover.get("comments", "None"))
     cover["address_line"] = (
-        cover["street"] + ", " + 
+        cover["street"] + ", " +
         cover["city"] + ", " +
-        cover["state"] + " " + 
-        cover["zip"] + ", " + 
+        cover["state"] + " " +
+        cover["zip"] + ", " +
         cover["country"]
     )
-    sample_type = st.selectbox("Sample Type", options=["GW","DW","WW","IW","SW"], index=0)
+    sample_type = st.selectbox("Sample Type", options=["GW", "DW", "WW", "IW", "SW"], index=0)
     try:
         dt = datetime.datetime.strptime(cover["date_samples_received"], "%m/%d/%Y")
         date_str = dt.strftime("%Y%m%d")
@@ -254,8 +270,8 @@ def render_cover_page():
         date_str = datetime.date.today().strftime("%Y%m%d")
     cover["work_order"] = f"{sample_type}-{date_str}-0001"
     st.subheader("Lab Manager Signatory")
-    cover["signatory_name"] = st.text_input("Lab Manager Name", value=cover.get("signatory_name",""))
-    cover["signatory_title"] = st.text_input("Lab Manager Title", value=cover.get("signatory_title","Lab Manager"))
+    cover["signatory_name"] = st.text_input("Lab Manager Name", value=cover.get("signatory_name", ""))
+    cover["signatory_title"] = st.text_input("Lab Manager Title", value=cover.get("signatory_title", "Lab Manager"))
     render_nav_buttons()
 
 def render_sample_summary_page():
@@ -265,8 +281,8 @@ def render_sample_summary_page():
     if "report_id" not in p1:
         p1["report_id"] = "".join(random.choices("0123456789", k=7))
         p1["report_date"] = datetime.date.today().strftime("%m/%d/%Y")
-        p1["client_name"] = st.session_state["cover_data"].get("client_name","")
-        p1["client_address"] = st.session_state["cover_data"].get("address_line","")
+        p1["client_name"] = st.session_state["cover_data"].get("client_name", "")
+        p1["client_address"] = st.session_state["cover_data"].get("address_line", "")
         p1["project_id"] = "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
     with st.form("sample_form", clear_on_submit=True):
         lab_id = st.text_input("Lab ID (blank=auto)", "")
@@ -356,7 +372,7 @@ def render_analytical_results_page():
         for i, r_ in enumerate(p2["results"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** Lab ID: {r_['lab_id']} (Sample ID: {r_.get('sample_id','')}), "
+                st.write(f"**{i+1}.** Lab ID: {r_['lab_id']} (Sample ID: {r_.get('sample_id', '')}), "
                          f"Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, "
                          f"MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
             with col2:
@@ -401,7 +417,6 @@ def render_quality_control_page():
             rpd_ms = st.text_input("MS/MSD % RPD", "")
             recovery_limits = st.text_input("% Recovery Limits", "")
             rpd_limits = st.text_input("% RPD Limits", "")
-    
         if st.form_submit_button("Add QC Entry"):
             q_batch = generate_qc_batch()
             if qc_type == "Method Blank":
@@ -679,55 +694,50 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
     pdf.ln(5)
-    # Iterate over each QC entry and display separately
+    # Iterate over each QC entry and print its header and corresponding table
     for qc in page3_data["qc_entries"]:
          pdf.set_font("DejaVu", "B", 10)
          header_text = f"QC Analysis (Method): {qc['qc_method']} | Parameter: {qc['parameter']}"
-         pdf.cell(0, 5, header_text, ln=True, align="L")
-         pdf.cell(0, 5, f"QC Batch: {qc['qc_batch']}", ln=True, align="L")
+         pdf.multi_cell(effective_width, 5, header_text, border=0, align="L")
+         pdf.multi_cell(effective_width, 5, f"QC Batch: {qc['qc_batch']}", border=0, align="L")
          pdf.ln(3)
          if qc["qc_type"] == "MB":
-             # Method Blank Data table with specified headers (no QC Batch column)
+             table_title = "Method Blank Data"
+             pdf.set_font("DejaVu", "B", 9)
+             pdf.multi_cell(effective_width, 5, table_title, border=0, align="C")
+             pdf.ln(2)
              headers_mb = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
-             col_width = effective_width / len(headers_mb)
-             pdf.set_font("DejaVu", "B", 8)
-             pdf.set_fill_color(230,230,230)
-             for h in headers_mb:
-                 pdf.cell(col_width, 7, h, border=1, align="C", fill=True)
-             pdf.ln(7)
-             pdf.set_font("DejaVu", "", 8)
+             num_cols = len(headers_mb)
+             col_width = effective_width / num_cols
+             draw_table_row(pdf, headers_mb, [col_width]*num_cols, line_height=5, border=1, align='C', fill=True)
              row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["method_blank"], qc["lab_qualifier"]]
-             for val in row:
-                 pdf.cell(col_width, 7, str(val), border=1, align="C")
-             pdf.ln(10)
+             draw_table_row(pdf, row, [col_width]*num_cols, line_height=5, border=1, align='C', fill=False)
+             pdf.ln(3)
          elif qc["qc_type"] == "LCS":
+             table_title = "LCS Data"
+             pdf.set_font("DejaVu", "B", 9)
+             pdf.multi_cell(effective_width, 5, table_title, border=0, align="C")
+             pdf.ln(2)
              headers_lcs = ["Parameter", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
-             col_width = effective_width / len(headers_lcs)
-             pdf.set_font("DejaVu", "B", 8)
-             pdf.set_fill_color(230,230,230)
-             for h in headers_lcs:
-                 pdf.cell(col_width, 5, h, border=1, align="C", fill=True)
-             pdf.ln(5)
-             pdf.set_font("DejaVu", "", 8)
+             num_cols = len(headers_lcs)
+             col_width = effective_width / num_cols
+             draw_table_row(pdf, headers_lcs, [col_width]*num_cols, line_height=5, border=1, align='C', fill=True)
              row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["spike_conc"], qc["lcs_recovery"], qc["lcsd_recovery"], qc["rpd_lcs"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
-             for val in row:
-                 pdf.cell(col_width, 5, str(val), border=1, align="C")
-             pdf.ln(10)
+             draw_table_row(pdf, row, [col_width]*num_cols, line_height=5, border=1, align='C', fill=False)
+             pdf.ln(3)
          elif qc["qc_type"] == "MS":
+             table_title = "MS Data"
+             pdf.set_font("DejaVu", "B", 9)
+             pdf.multi_cell(effective_width, 5, table_title, border=0, align="C")
+             pdf.ln(2)
              headers_ms = ["Parameter", "Unit", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
-             col_width = effective_width / len(headers_ms)
-             pdf.set_font("DejaVu", "B", 8)
-             pdf.set_fill_color(230,230,230)
-             for h in headers_ms:
-                 pdf.cell(col_width, 5, h, border=1, align="C", fill=True)
-             pdf.ln(5)
-             pdf.set_font("DejaVu", "", 8)
+             num_cols = len(headers_ms)
+             col_width = effective_width / num_cols
+             draw_table_row(pdf, headers_ms, [col_width]*num_cols, line_height=5, border=1, align='C', fill=True)
              row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["sample_conc"], qc["spike_conc"], qc["ms_recovery"], qc["msd_recovery"], qc["rpd_ms"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
-             for val in row:
-                 pdf.cell(col_width, 5, str(val), border=1, align="C")
-             pdf.ln(10)
+             draw_table_row(pdf, row, [col_width]*num_cols, line_height=5, border=1, align='C', fill=False)
+             pdf.ln(3)
          pdf.ln(5)
-    
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
     pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
