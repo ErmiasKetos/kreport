@@ -221,7 +221,6 @@ def render_cover_page():
         cover["comments"] = "None"
         cover["signatory_name"] = ""
         cover["signatory_title"] = "Lab Manager"
-
     cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name",""))
     cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name",""))
     selected_street, addr_details = address_autofill_field("Street Address", default=cover.get("street", ""))
@@ -236,7 +235,6 @@ def render_cover_page():
         cover["state"] = st.text_input("State/Province", value=cover.get("state", ""))
         cover["zip"] = st.text_input("Zip Code", value=cover.get("zip", ""))
         cover["country"] = st.text_input("Country", value=cover.get("country", ""))
-    
     cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type", "Environmental"))
     cover["date_samples_received"] = get_date_input("Date Samples Received", default_str=cover.get("date_samples_received", ""))
     cover["date_reported"] = get_date_input("Date Reported", default_str=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
@@ -373,7 +371,7 @@ def render_quality_control_page():
     st.header("Quality Control Data")
     p3 = st.session_state["page3_data"]
     p3.setdefault("qc_entries", [])
-    # New: QC Type selection now includes "Method Blank"
+    # QC form: now includes "Method Blank" along with "LCS" and "MS"
     qc_type = st.selectbox("QC Type", options=["Method Blank", "LCS", "MS"])
     analyte = st.selectbox("QC Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("QC Method", analyte_to_methods[analyte])
@@ -387,9 +385,7 @@ def render_quality_control_page():
             q_pql = st.text_input("PQL", "0.005")
         with c4:
             q_qual = st.text_input("Lab Qualifier", "")
-        # Field for Method Blank Concentration (will be used if qc_type == "Method Blank")
         blank_conc = st.text_input("Method Blank Conc.", "")
-        
         if qc_type == "LCS":
             spike_conc = st.text_input("Spike Conc.", "")
             lcs_recovery = st.text_input("LCS % Recovery", "")
@@ -408,7 +404,6 @@ def render_quality_control_page():
     
         if st.form_submit_button("Add QC Entry"):
             q_batch = generate_qc_batch()
-            # For Method Blank, use the user input for blank_conc
             if qc_type == "Method Blank":
                 entry = {
                     "qc_type": "MB",
@@ -459,12 +454,10 @@ def render_quality_control_page():
             p3["qc_entries"].append(entry)
     st.write("**Current QC Data:**")
     if p3["qc_entries"]:
-        for i, qc_ in enumerate(p3["qc_entries"]):
+        for i, qc in enumerate(p3["qc_entries"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
-                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
-                         f"PQL: {qc_['pql']}, Lab Qualifier: {qc_['lab_qualifier']}")
+                st.write(f"**{i+1}.** QC Batch: {qc['qc_batch']}, Method: {qc['qc_method']}, Parameter: {qc['parameter']}, Unit: {qc['unit']}, MDL: {qc['mdl']}, PQL: {qc['pql']}, Lab Qualifier: {qc['lab_qualifier']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_qc_{i}"):
                     del p3["qc_entries"][i]
@@ -576,6 +569,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, cover_data["signatory_title"], ln=True, align="L")
     signature_date = datetime.date.today().strftime("%m/%d/%Y")
     pdf.cell(0, 5, f"Date: {signature_date}", ln=True, align="L")
+
     # ---------------------------
     # 1. PAGE 1: SAMPLE SUMMARY
     # ---------------------------
@@ -608,6 +602,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         for val, w in zip(row_vals, widths):
             pdf.cell(w, 7, str(val), border=1, align="C")
         pdf.ln(7)
+    
     # ---------------------------
     # 2. PAGE 2: ANALYTICAL RESULTS
     # ---------------------------
@@ -664,6 +659,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
                 pdf.cell(w, 7, str(val), border=1, align="C")
             pdf.ln(7)
         pdf.ln(10)
+    
     # ---------------------------
     # 3. PAGE 3: QUALITY CONTROL DATA
     # ---------------------------
@@ -683,102 +679,55 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
     pdf.ln(5)
-    # Group QC data by QC Method and Parameter (Analyte)
-    qc_by_method_param = defaultdict(list)
+    # Iterate over each QC entry and display separately
     for qc in page3_data["qc_entries"]:
-        key = (qc["qc_method"], qc["parameter"])
-        qc_by_method_param[key].append(qc)
-    for (qc_method, parameter), entries in qc_by_method_param.items():
-        pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(0, 5, f"QC Analysis - Method: {qc_method} | Parameter: {parameter}", ln=True, align="L")
-        pdf.ln(3)
-        # Section 1: Method Blank Data Table (only for entries with qc_type == "MB")
-        mb_entries = [e for e in entries if e.get("qc_type") == "MB"]
-        if mb_entries:
-            pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 5, "Method Blank Data", ln=True, align="L")
-            mb_headers = ["QC Batch", "Method Blank"]
-            mb_widths = [60, 120]
-            pdf.set_font("DejaVu", "B", 8)
-            pdf.set_fill_color(230, 230, 230)
-            for h, w in zip(mb_headers, mb_widths):
-                pdf.cell(w, 7, h, border=1, align="C", fill=True)
-            pdf.ln(7)
-            pdf.set_font("DejaVu", "", 8)
-            for entry in mb_entries:
-                pdf.cell(mb_widths[0], 7, entry["qc_batch"], border=1, align="C")
-                pdf.cell(mb_widths[1], 7, entry["method_blank"], border=1, align="C")
-                pdf.ln(7)
-            pdf.ln(5)
-        # Section 2: LCS Data Table
-        lcs_entries = [e for e in entries if e.get("qc_type") == "LCS"]
-        if lcs_entries:
-            pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 5, "LCS Data", ln=True, align="L")
-            # Define base widths for 11 columns (base total = 150 mm)
-            base_widths_lcs = [15, 10, 10, 10, 15, 15, 15, 15, 15, 15, 15]
-            scale_factor = effective_width / sum(base_widths_lcs)
-            lcs_widths = [w * scale_factor for w in base_widths_lcs]
-            lcs_headers = ["QC Batch", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qual."]
-            pdf.set_font("DejaVu", "B", 8)
-            pdf.set_fill_color(230, 230, 230)
-            for h, w in zip(lcs_headers, lcs_widths):
-                pdf.cell(w, 5, h, border=1, align="C", fill=True)
-            pdf.ln(5)
-            pdf.set_font("DejaVu", "", 8)
-            for entry in lcs_entries:
-                row = [
-                    entry["qc_batch"],
-                    entry["unit"],
-                    entry["mdl"],
-                    entry["pql"],
-                    entry["spike_conc"],
-                    entry["lcs_recovery"],
-                    entry["lcsd_recovery"],
-                    entry["rpd_lcs"],
-                    entry["recovery_limits"],
-                    entry["rpd_limits"],
-                    entry["lab_qualifier"]
-                ]
-                for val, w in zip(row, lcs_widths):
-                    pdf.cell(w, 5, str(val), border=1, align="C")
-                pdf.ln(5)
-            pdf.ln(5)
-        # Section 3: MS Data Table
-        ms_entries = [e for e in entries if e.get("qc_type") == "MS"]
-        if ms_entries:
-            pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 5, "MS Data", ln=True, align="L")
-            base_widths_ms = [15, 10, 10, 10, 15, 15, 15, 15, 15, 15, 15, 15]
-            scale_factor_ms = effective_width / sum(base_widths_ms)
-            ms_widths = [w * scale_factor_ms for w in base_widths_ms]
-            ms_headers = ["QC Batch", "Unit", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qual."]
-            pdf.set_font("DejaVu", "B", 8)
-            pdf.set_fill_color(230, 230, 230)
-            for h, w in zip(ms_headers, ms_widths):
-                pdf.cell(w, 5, h, border=1, align="C", fill=True)
-            pdf.ln(5)
-            pdf.set_font("DejaVu", "", 8)
-            for entry in ms_entries:
-                row = [
-                    entry["qc_batch"],
-                    entry["unit"],
-                    entry["mdl"],
-                    entry["pql"],
-                    entry["sample_conc"],
-                    entry["spike_conc"],
-                    entry["ms_recovery"],
-                    entry["msd_recovery"],
-                    entry["rpd_ms"],
-                    entry["recovery_limits"],
-                    entry["rpd_limits"],
-                    entry["lab_qualifier"]
-                ]
-                for val, w in zip(row, ms_widths):
-                    pdf.cell(w, 5, str(val), border=1, align="C")
-                pdf.ln(5)
-            pdf.ln(10)
-        pdf.ln(5)
+         pdf.set_font("DejaVu", "B", 10)
+         header_text = f"QC Analysis (Method): {qc['qc_method']} | Parameter: {qc['parameter']}"
+         pdf.cell(0, 5, header_text, ln=True, align="L")
+         pdf.cell(0, 5, f"QC Batch: {qc['qc_batch']}", ln=True, align="L")
+         pdf.ln(3)
+         if qc["qc_type"] == "MB":
+             # Method Blank Data table with specified headers (no QC Batch column)
+             headers_mb = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
+             col_width = effective_width / len(headers_mb)
+             pdf.set_font("DejaVu", "B", 8)
+             pdf.set_fill_color(230,230,230)
+             for h in headers_mb:
+                 pdf.cell(col_width, 7, h, border=1, align="C", fill=True)
+             pdf.ln(7)
+             pdf.set_font("DejaVu", "", 8)
+             row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["method_blank"], qc["lab_qualifier"]]
+             for val in row:
+                 pdf.cell(col_width, 7, str(val), border=1, align="C")
+             pdf.ln(10)
+         elif qc["qc_type"] == "LCS":
+             headers_lcs = ["Parameter", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
+             col_width = effective_width / len(headers_lcs)
+             pdf.set_font("DejaVu", "B", 8)
+             pdf.set_fill_color(230,230,230)
+             for h in headers_lcs:
+                 pdf.cell(col_width, 5, h, border=1, align="C", fill=True)
+             pdf.ln(5)
+             pdf.set_font("DejaVu", "", 8)
+             row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["spike_conc"], qc["lcs_recovery"], qc["lcsd_recovery"], qc["rpd_lcs"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
+             for val in row:
+                 pdf.cell(col_width, 5, str(val), border=1, align="C")
+             pdf.ln(10)
+         elif qc["qc_type"] == "MS":
+             headers_ms = ["Parameter", "Unit", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
+             col_width = effective_width / len(headers_ms)
+             pdf.set_font("DejaVu", "B", 8)
+             pdf.set_fill_color(230,230,230)
+             for h in headers_ms:
+                 pdf.cell(col_width, 5, h, border=1, align="C", fill=True)
+             pdf.ln(5)
+             pdf.set_font("DejaVu", "", 8)
+             row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["sample_conc"], qc["spike_conc"], qc["ms_recovery"], qc["msd_recovery"], qc["rpd_ms"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
+             for val in row:
+                 pdf.cell(col_width, 5, str(val), border=1, align="C")
+             pdf.ln(10)
+         pdf.ln(5)
+    
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
     pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
