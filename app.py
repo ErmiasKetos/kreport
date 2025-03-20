@@ -99,7 +99,6 @@ def draw_table_row(pdf, data, widths, line_height=5, border=1, align='C', fill=F
     y_start = pdf.get_y()
     max_lines = 1
     for text, w in zip(data, widths):
-        # Estimate number of lines by dividing the string width by the cell width
         text_width = pdf.get_string_width(text)
         lines = math.ceil(text_width / w)
         if lines < 1:
@@ -387,7 +386,7 @@ def render_quality_control_page():
     st.header("Quality Control Data")
     p3 = st.session_state["page3_data"]
     p3.setdefault("qc_entries", [])
-    # QC form: now includes "Method Blank" along with "LCS" and "MS"
+    # QC form: includes "Method Blank", "LCS", and "MS"
     qc_type = st.selectbox("QC Type", options=["Method Blank", "LCS", "MS"])
     analyte = st.selectbox("QC Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("QC Method", analyte_to_methods[analyte])
@@ -472,7 +471,7 @@ def render_quality_control_page():
         for i, qc in enumerate(p3["qc_entries"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** QC Batch: {qc['qc_batch']}, Method: {qc['qc_method']}, Parameter: {qc['parameter']}, Unit: {qc['unit']}, MDL: {qc['mdl']}, PQL: {qc['pql']}, Lab Qualifier: {qc['lab_qualifier']}")
+                st.write(f"**{i+1}.** QC Batch: {qc['qc_batch']}, Method: {qc['qc_method']}, Parameter: {qc['parameter']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_qc_{i}"):
                     del p3["qc_entries"][i]
@@ -684,7 +683,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     except Exception as e:
         pdf.set_font("DejaVu", "B", 12)
         pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
+        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
     pdf.ln(20)
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 10, "QUALITY CONTROL DATA", ln=True, align="C")
@@ -694,47 +693,49 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
     pdf.ln(5)
-    # Iterate over each QC entry and print its header and corresponding table
+    # For each QC entry, print header info and draw its corresponding table
     for qc in page3_data["qc_entries"]:
          pdf.set_font("DejaVu", "B", 10)
          header_text = f"QC Analysis (Method): {qc['qc_method']} | Parameter: {qc['parameter']}"
          pdf.multi_cell(effective_width, 5, header_text, border=0, align="L")
          pdf.multi_cell(effective_width, 5, f"QC Batch: {qc['qc_batch']}", border=0, align="L")
+         # Move the unit outside the table
+         pdf.multi_cell(effective_width, 5, f"Unit: {qc['unit']}", border=0, align="L")
          pdf.ln(3)
          if qc["qc_type"] == "MB":
              table_title = "Method Blank Data"
              pdf.set_font("DejaVu", "B", 9)
-             pdf.multi_cell(effective_width, 5, table_title, border=0, align="C")
+             pdf.multi_cell(effective_width, 5, table_title, border=0, align="L")
              pdf.ln(2)
-             headers_mb = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
+             headers_mb = ["Parameter", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
              num_cols = len(headers_mb)
              col_width = effective_width / num_cols
              draw_table_row(pdf, headers_mb, [col_width]*num_cols, line_height=5, border=1, align='C', fill=True)
-             row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["method_blank"], qc["lab_qualifier"]]
+             row = [qc["parameter"], qc["mdl"], qc["pql"], qc["method_blank"], qc["lab_qualifier"]]
              draw_table_row(pdf, row, [col_width]*num_cols, line_height=5, border=1, align='C', fill=False)
              pdf.ln(3)
          elif qc["qc_type"] == "LCS":
              table_title = "LCS Data"
              pdf.set_font("DejaVu", "B", 9)
-             pdf.multi_cell(effective_width, 5, table_title, border=0, align="C")
+             pdf.multi_cell(effective_width, 5, table_title, border=0, align="L")
              pdf.ln(2)
-             headers_lcs = ["Parameter", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
+             headers_lcs = ["Parameter", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
              num_cols = len(headers_lcs)
              col_width = effective_width / num_cols
              draw_table_row(pdf, headers_lcs, [col_width]*num_cols, line_height=5, border=1, align='C', fill=True)
-             row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["spike_conc"], qc["lcs_recovery"], qc["lcsd_recovery"], qc["rpd_lcs"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
+             row = [qc["parameter"], qc["mdl"], qc["pql"], qc["spike_conc"], qc["lcs_recovery"], qc["lcsd_recovery"], qc["rpd_lcs"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
              draw_table_row(pdf, row, [col_width]*num_cols, line_height=5, border=1, align='C', fill=False)
              pdf.ln(3)
          elif qc["qc_type"] == "MS":
              table_title = "MS Data"
              pdf.set_font("DejaVu", "B", 9)
-             pdf.multi_cell(effective_width, 5, table_title, border=0, align="C")
+             pdf.multi_cell(effective_width, 5, table_title, border=0, align="L")
              pdf.ln(2)
-             headers_ms = ["Parameter", "Unit", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
+             headers_ms = ["Parameter", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
              num_cols = len(headers_ms)
              col_width = effective_width / num_cols
              draw_table_row(pdf, headers_ms, [col_width]*num_cols, line_height=5, border=1, align='C', fill=True)
-             row = [qc["parameter"], qc["unit"], qc["mdl"], qc["pql"], qc["sample_conc"], qc["spike_conc"], qc["ms_recovery"], qc["msd_recovery"], qc["rpd_ms"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
+             row = [qc["parameter"], qc["mdl"], qc["pql"], qc["sample_conc"], qc["spike_conc"], qc["ms_recovery"], qc["msd_recovery"], qc["rpd_ms"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
              draw_table_row(pdf, row, [col_width]*num_cols, line_height=5, border=1, align='C', fill=False)
              pdf.ln(3)
          pdf.ln(5)
