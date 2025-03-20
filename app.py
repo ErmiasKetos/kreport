@@ -20,7 +20,6 @@ def reset_app():
 class PDF(FPDF):
     def footer(self):
         self.set_y(-15)
-        # If you have DejaVu fonts, use them:
         self.set_font("DejaVu", "I", 8)
         self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
 
@@ -164,10 +163,7 @@ PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control 
 #####################################
 if "initialized" not in st.session_state:
     st.session_state.initialized = True
-    # We start on page 0 => cover page
     st.session_state.current_page = 0
-    
-    # Prepare each dictionary if not present
     st.session_state.setdefault("cover_data", {})
     st.session_state.setdefault("page1_data", {})
     st.session_state.setdefault("page2_data", {})
@@ -177,7 +173,6 @@ if "initialized" not in st.session_state:
 # 2) NAVBAR
 #####################################
 def render_navbar():
-    # Show progress
     progress = int((st.session_state.current_page + 1) / len(PAGES) * 100)
     st.markdown(f"""
     <div style="width: 100%; background-color: #eee; border-radius: 4px; margin-bottom: 16px;">
@@ -193,16 +188,14 @@ def render_navbar():
             st.session_state.current_page = i
 
 #####################################
-# 3) Next/Back
+# 3) Next/Back Buttons
 #####################################
 def render_nav_buttons():
     col1, col2 = st.columns([1, 1])
-    
     if st.session_state.current_page > 0:
         if col1.button("Back", key=f"back_{st.session_state.current_page}"):
             st.session_state.current_page -= 1
             st.rerun()
-
     if st.session_state.current_page < len(PAGES) - 1:
         if col2.button("Next", key=f"next_{st.session_state.current_page}"):
             st.session_state.current_page += 1
@@ -225,7 +218,6 @@ def render_cover_page():
         cover["zip"] = ""
         cover["country"] = ""
         cover["phone"] = ""
-        default_date = datetime.date.today().strftime("%m/%d/%Y")
         cover["date_samples_received"] = ""
         cover["date_reported"] = ""
         cover["analysis_type"] = "Environmental"
@@ -407,7 +399,7 @@ def render_quality_control_page():
     p3 = st.session_state["page3_data"]
     p3.setdefault("qc_entries", [])
 
-    # New: choose QC type
+    # QC form: choose QC type and fill in respective inputs
     qc_type = st.selectbox("QC Type", options=["LCS", "MS"])
     analyte = st.selectbox("QC Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("QC Method", analyte_to_methods[analyte])
@@ -504,17 +496,13 @@ def render_quality_control_page():
 #####################################
 # PDF GENERATION
 #####################################
-class MyPDF(FPDF):
-    pass
-
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, page1_data, page2_data, page3_data):
     pdf = PDF("P", "mm", "A4")
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
     p2 = page2_data if page2_data else {"results": []}
-    pdf.set_text_color(0, 0, 0)
-    effective_width = 180
-    total_pages = 4  # Cover, Page 1, Page 2, Page 3
+    effective_width = 180  # Page width for table content
+    total_pages = 4
 
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
@@ -531,7 +519,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
         pdf.set_font("DejaVu", "B", 12)
         pdf.set_xy(10, 10)
         pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
-    
     pdf.set_font("DejaVu", "", 10)
     pdf.set_xy(140,8)
     pdf.cell(0, 5, "520 Mercury Dr, Sunnyvale, CA 94085", ln=True, align="R")
@@ -540,7 +527,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_x(140)
     pdf.cell(0, 5, "Phone: (408) 461-8860", ln=True, align="R")
     pdf.ln(30)
-
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
     pdf.ln(4)
@@ -742,46 +728,53 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
     pdf.ln(5)
     
-    qc_by_method = defaultdict(list)
-    for qc_ in page3_data["qc_entries"]:
-        qc_by_method[qc_["qc_method"]].append(qc_)
+    # Group QC data by QC Method and Parameter (Analyte)
+    qc_by_method_param = defaultdict(list)
+    for qc in page3_data["qc_entries"]:
+        key = (qc["qc_method"], qc["parameter"])
+        qc_by_method_param[key].append(qc)
     
-    for method, qcs in qc_by_method.items():
+    for (qc_method, parameter), entries in qc_by_method_param.items():
         pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(0, 5, f"QC Analysis (Method): {method}", ln=True, align="L")
+        pdf.cell(0, 5, f"QC Analysis - Method: {qc_method} | Parameter: {parameter}", ln=True, align="L")
         pdf.ln(3)
-        # Section 1: Method Blank
+        
+        # Section 1: Method Blank Table
         pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(0, 5, "Method Blank", ln=True, align="L")
-        mb_widths = [60, 120]
-        headers_mb = ["QC Batch", "Method Blank"]
+        pdf.cell(0, 5, "Method Blank Data", ln=True, align="L")
+        mb_headers = ["QC Batch", "Method Blank"]
+        mb_widths = [60, 120]  # Sum to effective_width (180)
+        pdf.set_font("DejaVu", "B", 8)
         pdf.set_fill_color(230, 230, 230)
-        for h, w in zip(headers_mb, mb_widths):
+        for h, w in zip(mb_headers, mb_widths):
             pdf.cell(w, 7, h, border=1, align="C", fill=True)
         pdf.ln(7)
-        for qc_ in qcs:
-            pdf.cell(mb_widths[0], 7, qc_["qc_batch"], border=1, align="C")
-            pdf.cell(mb_widths[1], 7, qc_["method_blank"], border=1, align="C")
+        pdf.set_font("DejaVu", "", 8)
+        for entry in entries:
+            pdf.cell(mb_widths[0], 7, entry["qc_batch"], border=1, align="C")
+            pdf.cell(mb_widths[1], 7, entry["method_blank"], border=1, align="C")
             pdf.ln(7)
         pdf.ln(5)
         
-        # Section 2: LCS Entries
-        lcs_entries = [x for x in qcs if x.get("qc_type") == "LCS"]
+        # Section 2: LCS Data Table
+        lcs_entries = [e for e in entries if e.get("qc_type") == "LCS"]
         if lcs_entries:
             pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 5, "LCS", ln=True, align="L")
-            lcs_widths = [15, 25, 10, 10, 10, 15, 15, 15, 15, 15, 15, 20]
-            headers_lcs = ["QC Batch", "Parameter", "Unit", "MDL", "PQL", "Spike", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qual."]
+            pdf.cell(0, 5, "LCS Data", ln=True, align="L")
+            # Define base widths for 11 columns (base total = 150 mm)
+            base_widths_lcs = [15, 10, 10, 10, 15, 15, 15, 15, 15, 15, 15]
+            scale_factor = effective_width / sum(base_widths_lcs)  # 180/150 = 1.2
+            lcs_widths = [w * scale_factor for w in base_widths_lcs]
+            lcs_headers = ["QC Batch", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qual."]
             pdf.set_font("DejaVu", "B", 8)
             pdf.set_fill_color(230, 230, 230)
-            for h, w in zip(headers_lcs, lcs_widths):
+            for h, w in zip(lcs_headers, lcs_widths):
                 pdf.cell(w, 5, h, border=1, align="C", fill=True)
             pdf.ln(5)
             pdf.set_font("DejaVu", "", 8)
             for entry in lcs_entries:
-                row_vals = [
+                row = [
                     entry["qc_batch"],
-                    entry["parameter"],
                     entry["unit"],
                     entry["mdl"],
                     entry["pql"],
@@ -793,28 +786,30 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
                     entry["rpd_limits"],
                     entry["lab_qualifier"]
                 ]
-                for val, w in zip(row_vals, lcs_widths):
+                for val, w in zip(row, lcs_widths):
                     pdf.cell(w, 5, str(val), border=1, align="C")
                 pdf.ln(5)
             pdf.ln(5)
         
-        # Section 3: MS Entries
-        ms_entries = [x for x in qcs if x.get("qc_type") == "MS"]
+        # Section 3: MS Data Table
+        ms_entries = [e for e in entries if e.get("qc_type") == "MS"]
         if ms_entries:
             pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 5, "MS", ln=True, align="L")
-            ms_widths = [15, 25, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 15]
-            headers_ms = ["QC Batch", "Parameter", "Unit", "MDL", "PQL", "Samp Conc.", "Spike", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qual."]
+            pdf.cell(0, 5, "MS Data", ln=True, align="L")
+            # Define base widths for 12 columns (base total = 165 mm)
+            base_widths_ms = [15, 10, 10, 10, 15, 15, 15, 15, 15, 15, 15, 15]
+            scale_factor_ms = effective_width / sum(base_widths_ms)  # approx 180/165 ~1.0909
+            ms_widths = [w * scale_factor_ms for w in base_widths_ms]
+            ms_headers = ["QC Batch", "Unit", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qual."]
             pdf.set_font("DejaVu", "B", 8)
             pdf.set_fill_color(230, 230, 230)
-            for h, w in zip(headers_ms, ms_widths):
+            for h, w in zip(ms_headers, ms_widths):
                 pdf.cell(w, 5, h, border=1, align="C", fill=True)
             pdf.ln(5)
             pdf.set_font("DejaVu", "", 8)
             for entry in ms_entries:
-                row_vals = [
+                row = [
                     entry["qc_batch"],
-                    entry["parameter"],
                     entry["unit"],
                     entry["mdl"],
                     entry["pql"],
@@ -827,11 +822,11 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
                     entry["rpd_limits"],
                     entry["lab_qualifier"]
                 ]
-                for val, w in zip(row_vals, ms_widths):
+                for val, w in zip(row, ms_widths):
                     pdf.cell(w, 5, str(val), border=1, align="C")
                 pdf.ln(5)
-            pdf.ln(5)
-        pdf.ln(10)
+            pdf.ln(10)
+        pdf.ln(5)
     
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
