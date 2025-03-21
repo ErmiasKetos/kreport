@@ -921,7 +921,11 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
                     pdf.cell(w, 7, str(val), border=1, align="C")
                 pdf.ln(7)
             pdf.ln(10)
-    return pdf
+    # Convert to bytes
+    buffer = io.BytesIO()
+    pdf.output(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 
@@ -977,3 +981,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
