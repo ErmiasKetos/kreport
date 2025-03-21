@@ -1,4 +1,3 @@
-
 import streamlit as st
 from fpdf import FPDF
 import datetime
@@ -22,7 +21,7 @@ class PDF(FPDF):
         self.set_y(-15)
         # If you have DejaVu fonts, use them:
         self.set_font("DejaVu", "I", 8)
-        self.cell(0, 10, f"Page {self.page_no()} of {{nb}}\", 0, 0, \"C\")
+        self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
 
 #####################################
 # Helper Functions
@@ -417,8 +416,7 @@ def render_quality_control_page():
             col1, col2 = st.columns([4, 1])
             with col1:
                 st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
-                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
-                         f"PQL: {qc_['pql']}, Blank Result: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}, Method Blank: {qc_['method_blank']}")
+                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL:                          f"PQL: {qc_['pql']}, Blank Result: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}, Method Blank: {qc_['method_blank']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_qc_{i}"):
                     del p3["qc_entries"][i]
