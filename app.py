@@ -704,6 +704,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
          pdf.ln(3)
          if qc["qc_type"] == "MB":
              table_title = "Method Blank Data"
+             pdf.multi_cell(effective_width, 5, f"QC Batch: {qc['qc_batch']}", border=0, align="L")
              pdf.set_font("DejaVu", "B", 9)
              pdf.multi_cell(effective_width, 5, table_title, border=0, align="L")
              pdf.ln(2)
