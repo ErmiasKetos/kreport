@@ -411,12 +411,14 @@ def render_quality_control_page():
             })
 
     st.write("**Current QC Data:**")
+  
     if p3["qc_entries"]:
         for i, qc_ in enumerate(p3["qc_entries"]):
             col1, col2 = st.columns([4, 1])
             with col1:
                 st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
-                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL:                          f"PQL: {qc_['pql']}, Blank Result: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}, Method Blank: {qc_['method_blank']}")
+                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
+                         f"PQL: {qc_['pql']}, Blank Result: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}, Method Blank: {qc_['method_blank']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_qc_{i}"):
                     del p3["qc_entries"][i]
@@ -661,3 +663,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
