@@ -411,7 +411,7 @@ def render_quality_control_page():
             })
 
     st.write("**Current QC Data:**")
-  
+
     if p3["qc_entries"]:
         for i, qc_ in enumerate(p3["qc_entries"]):
             col1, col2 = st.columns([4, 1])
@@ -463,30 +463,30 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0, 10, "Water Quality Analysis Report", 0, 1, "C")
     pdf.ln(10)
     pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Report ID: {cover_data['report_id']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Report Date: {cover_data['report_date']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Report ID: {cover_data.get('report_id', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Report Date: {cover_data.get('report_date', 'N/A')}", 0, 1, "L")
     pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 8, "Client Information", 0, 1, "L")
     pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Client Name: {cover_data['client_name']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Address: {cover_data['address_line']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Phone: {cover_data['phone']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Client Name: {cover_data.get('client_name', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Address: {cover_data.get('address_line', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Phone: {cover_data.get('phone', 'N/A')}", 0, 1, "L")
     pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 8, "Project Information", 0, 1, "L")
     pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Project Name: {cover_data['project_name']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Work Order #: {cover_data['work_order']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Analysis Type: {cover_data['analysis_type']}", 0, 1, "L")
-    pdf.cell(0, 6, f"COC #: {cover_data['coc_number']}", 0, 1, "L")
-    pdf.cell(0, 6, f"PO #: {cover_data['po_number']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Date Samples Received: {cover_data['date_samples_received']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Project Name: {cover_data.get('project_name', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Work Order #: {cover_data.get('work_order', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Analysis Type: {cover_data.get('analysis_type', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"COC #: {cover_data.get('coc_number', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"PO #: {cover_data.get('po_number', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Date Samples Received: {cover_data.get('date_samples_received', 'N/A')}", 0, 1, "L")
     pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 8, "Comments / Case Narrative", 0, 1, "L")
     pdf.set_font("DejaVu", size=12)
-    pdf.multi_cell(0, 6, cover_data['comments'], 0, 'L')
+    pdf.multi_cell(0, 6, cover_data.get('comments', 'N/A'), 0, 'L')
     pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
     pdf.cell(0, 8, "Laboratory Information", 0, 1, "L")
@@ -496,8 +496,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0, 6, f"Email: {lab_email}", 0, 1, "L")
     pdf.cell(0, 6, f"Phone: {lab_phone}", 0, 1, "L")
     pdf.ln(10)
-    pdf.cell(0, 6, f"Signatory Name: {cover_data['signatory_name']}", 0, 1, "L")
-    pdf.cell(0, 6, f"Signatory Title: {cover_data['signatory_title']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Signatory Name: {cover_data.get('signatory_name', 'N/A')}", 0, 1, "L")
+    pdf.cell(0, 6, f"Signatory Title: {cover_data.get('signatory_title', 'N/A')}", 0, 1, "L")
 
     # Sample Summary Page
     pdf.add_page()
@@ -511,12 +511,12 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(40, 8, "Date Collected", 1, 0, "C")
     pdf.cell(40, 8, "Date Received", 1, 1, "C")
     pdf.set_font("DejaVu", size=12)
-    for sample in page1_data["samples"]:
-        pdf.cell(30, 6, sample["lab_id"], 1, 0, "C")
-        pdf.cell(30, 6, sample["sample_id"], 1, 0, "C")
-        pdf.cell(25, 6, sample["matrix"], 1, 0, "C")
-        pdf.cell(40, 6, sample["date_collected"], 1, 0, "C")
-        pdf.cell(40, 6, sample["date_received"], 1, 1, "C")
+    for sample in page1_data.get("samples", []):
+        pdf.cell(30, 6, sample.get("lab_id", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, sample.get("sample_id", "N/A"), 1, 0, "C")
+        pdf.cell(25, 6, sample.get("matrix", "N/A"), 1, 0, "C")
+        pdf.cell(40, 6, sample.get("date_collected", "N/A"), 1, 0, "C")
+        pdf.cell(40, 6, sample.get("date_received", "N/A"), 1, 1, "C")
 
     # Analytical Results Page
     pdf.add_page()
@@ -535,17 +535,17 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(20, 8, "Result", 1, 0, "C")
     pdf.cell(20,8,"Unit",1,1,"C")
     pdf.set_font("DejaVu", size=12)
-    for result in page2_data["results"]:
-        pdf.cell(30, 6, result["lab_id"], 1, 0, "C")
-        pdf.cell(30, 6, result.get("sample_id",""), 1, 0, "C")
-        pdf.cell(30, 6, result["analysis_date"], 1, 0, "C")  # Display Analysis Date
-        pdf.cell(40, 6, result["parameter"], 1, 0, "C")
-        pdf.cell(30, 6, result["analysis"], 1, 0, "C")
-        pdf.cell(20, 6, result["df"], 1, 0, "C")
-        pdf.cell(20, 6, result["mdl"], 1, 0, "C")
-        pdf.cell(20, 6, result["pql"], 1, 0, "C")
-        pdf.cell(20, 6, result["result"], 1, 0, "C")
-        pdf.cell(20,6,result["unit"],1,1,"C")
+    for result in page2_data.get("results", []):
+        pdf.cell(30, 6, result.get("lab_id", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, result.get("sample_id", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, result.get("analysis_date", "N/A"), 1, 0, "C")  # Display Analysis Date
+        pdf.cell(40, 6, result.get("parameter", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, result.get("analysis", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, result.get("df", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, result.get("mdl", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, result.get("pql", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, result.get("result", "N/A"), 1, 0, "C")
+        pdf.cell(20,6, result.get("unit","N/A"),1,1,"C")
 
     # Quality Control Data Page
     pdf.add_page()
@@ -563,16 +563,16 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(30, 8, "Lab Qualifier", 1, 0, "C")
     pdf.cell(30,8,"Method Blank",1,1,"C")
     pdf.set_font("DejaVu", size=12)
-    for qc_entry in page3_data["qc_entries"]:
-        pdf.cell(30, 6, qc_entry["qc_batch"], 1, 0, "C")
-        pdf.cell(30, 6, qc_entry["qc_method"], 1, 0, "C")
-        pdf.cell(40, 6, qc_entry["parameter"], 1, 0, "C")
-        pdf.cell(20, 6, qc_entry["unit"], 1, 0, "C")
-        pdf.cell(20, 6, qc_entry["mdl"], 1, 0, "C")
-        pdf.cell(20, 6, qc_entry["pql"], 1, 0, "C")
-        pdf.cell(30, 6, qc_entry["blank_result"], 1, 0, "C")
-        pdf.cell(30, 6, qc_entry["lab_qualifier"], 1, 0, "C")
-        pdf.cell(30,6,qc_entry["method_blank"],1,1,"C")
+    for qc_entry in page3_data.get("qc_entries", []):
+        pdf.cell(30, 6, qc_entry.get("qc_batch", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, qc_entry.get("qc_method", "N/A"), 1, 0, "C")
+        pdf.cell(40, 6, qc_entry.get("parameter", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, qc_entry.get("unit", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, qc_entry.get("mdl", "N/A"), 1, 0, "C")
+        pdf.cell(20, 6, qc_entry.get("pql", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, qc_entry.get("blank_result", "N/A"), 1, 0, "C")
+        pdf.cell(30, 6, qc_entry.get("lab_qualifier", "N/A"), 1, 0, "C")
+        pdf.cell(30,6,qc_entry.get("method_blank","N/A"),1,1,"C")
 
     # Add a page break before the disclaimer if there are more than 3 pages
     if pdf.page_no() > 3:
