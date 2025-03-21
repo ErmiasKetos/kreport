@@ -90,6 +90,7 @@ def address_autofill_field(label, default=""):
     return query, None
 
 def draw_table_row(pdf, data, widths, line_height=5, border=1, align='C', fill=False):
+    """Draw a row with multi_cell wrapping in each cell."""
     x_start = pdf.get_x()
     y_start = pdf.get_y()
     max_lines = 1
@@ -181,6 +182,7 @@ def render_cover_page():
         cover["comments"] = "None"
         cover["signatory_name"] = ""
         cover["signatory_title"] = "Lab Manager"
+
     cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name", ""))
     cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name", ""))
     street_val, addr_details = address_autofill_field("Street Address", default=cover.get("street", ""))
@@ -246,10 +248,10 @@ def render_sample_summary_page():
     st.write("**Current Water Samples:**")
     if p1["samples"]:
         for i, s_ in enumerate(p1["samples"]):
-            col1, col2 = st.columns([4, 1])
-            with col1:
+            c1, c2 = st.columns([4, 1])
+            with c1:
                 st.write(f"{i+1}) Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, Collected: {s_['date_collected']}, Received: {s_['date_received']}")
-            with col2:
+            with c2:
                 if st.button(f"❌ Remove", key=f"del_samp_{i}"):
                     del p1["samples"][i]
                     st.rerun()
@@ -313,12 +315,12 @@ def render_analytical_results_page():
     st.write("**Current Analytical Results:**")
     if p2["results"]:
         for i, row_ in enumerate(p2["results"]):
-            col1, col2 = st.columns([4, 1])
-            with col1:
+            c1, c2 = st.columns([4, 1])
+            with c1:
                 st.write(f"{i+1}) Lab ID: {row_['lab_id']} (Sample ID: {row_.get('sample_id','')}), "
                          f"Parameter: {row_['parameter']}, Analysis: {row_['analysis']}, DF: {row_['df']}, "
                          f"MDL: {row_['mdl']}, PQL: {row_['pql']}, Result: {row_['result']} {row_['unit']}")
-            with col2:
+            with c2:
                 if st.button(f"❌ Remove", key=f"del_anal_{i}"):
                     del p2["results"][i]
                     st.rerun()
@@ -427,7 +429,7 @@ def render_quality_control_page():
     render_nav_buttons()
 
 ########################################
-# PDF Generation
+# PDF Generation Function
 ########################################
 def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
                       cover_data, page1_data, page2_data, page3_data):
@@ -447,11 +449,11 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.image("kelp_logo.png", x=10, y=5, w=50)
     except:
         pdf.set_xy(10,10)
-        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_font("DejaVu","B",12)
         pdf.cell(30,10,"[LOGO]",0,ln=0,align="L")
     pdf.ln(30)
     pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
+    pdf.cell(0,10,"CERTIFICATE OF ANALYSIS", ln=True, align="C")
     pdf.ln(5)
     left_w = 60
     right_w = effective_width - left_w
@@ -469,42 +471,42 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     row("Date Reported:", cover_data.get("date_reported", "N/A"))
     pdf.ln(5)
     pdf.set_font("DejaVu", "B", 10)
-    pdf.cell(0, 6, "Comments / Case Narrative:", ln=True)
+    pdf.cell(0,6,"Comments / Case Narrative:", ln=True)
     pdf.set_font("DejaVu", "", 10)
-    pdf.multi_cell(0, 5, cover_data.get("comments", "N/A"), border=1, align="L")
+    pdf.multi_cell(0,5, cover_data.get("comments", "N/A"), border=1, align="L")
     pdf.ln(3)
-    pdf.cell(0, 5, f"Lab Manager: {cover_data.get('signatory_name', '')} - {cover_data.get('signatory_title', '')}", ln=True)
+    pdf.cell(0,5, f"Lab Manager: {cover_data.get('signatory_name', '')} - {cover_data.get('signatory_title', '')}", ln=True)
     
     # --- PAGE 2: Sample Summary ---
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "SAMPLE SUMMARY", ln=True, align="C")
+    pdf.cell(0,10,"SAMPLE SUMMARY", ln=True, align="C")
     pdf.ln(5)
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 6, f"Report ID: {page1_data.get('report_id', '')}", ln=True, align="L")
-    pdf.cell(0, 6, f"Report Date: {page1_data.get('report_date', '')}", ln=True, align="L")
+    pdf.cell(0,6, f"Report ID: {page1_data.get('report_id', '')}", ln=True, align="L")
+    pdf.cell(0,6, f"Report Date: {page1_data.get('report_date', '')}", ln=True, align="L")
     pdf.ln(3)
     wds = [30, 30, 30, 40, 40]
     pdf.set_font("DejaVu", "B", 9)
-    hdrs = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
+    hdrs = ["Lab ID","Sample ID","Matrix","Date Collected","Date Received"]
     for h, wd in zip(hdrs, wds):
-        pdf.cell(wd, 6, h, border=1, align="C")
+        pdf.cell(wd,6, h, border=1, align="C")
     pdf.ln(6)
     pdf.set_font("DejaVu", "", 9)
     for s_ in page1_data.get("samples", []):
-        row_vals = [s_["lab_id"], s_["sample_id"], s_["matrix"], s_["date_collected"], s_["date_received"]]
+        row_vals = [ s_["lab_id"], s_["sample_id"], s_["matrix"], s_["date_collected"], s_["date_received"] ]
         for val, wd in zip(row_vals, wds):
-            pdf.cell(wd, 6, val, border=1, align="C")
+            pdf.cell(wd,6, val, border=1, align="C")
         pdf.ln(6)
     
     # --- PAGE 3: Analytical Results ---
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "ANALYTICAL RESULTS", ln=True, align="C")
+    pdf.cell(0,10,"ANALYTICAL RESULTS", ln=True, align="C")
     pdf.ln(5)
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 6, f"Report ID: {page2_data.get('report_id', '')}", ln=True)
-    pdf.cell(0, 6, f"Report Date: {page2_data.get('report_date', '')}", ln=True)
+    pdf.cell(0,6, f"Report ID: {page2_data.get('report_id', '')}", ln=True)
+    pdf.cell(0,6, f"Report Date: {page2_data.get('report_date', '')}", ln=True)
     pdf.ln(3)
     results = page2_data.get("results", [])
     grouped = defaultdict(list)
@@ -513,38 +515,40 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         grouped[key].append(r)
     col_w = [30, 30, 30, 15, 15, 15, 30, 15]
     pdf.set_font("DejaVu", "B", 9)
-    hdrs2 = ["Analysis Date", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
+    hdrs2 = ["Analysis Date","Parameter","Analysis","DF","MDL","PQL","Result","Unit"]
     for (labid, sid), arr in grouped.items():
         pdf.ln(5)
         pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(0, 6, f"Lab ID: {labid}, Sample ID: {sid}", ln=True)
+        pdf.cell(0,6, f"Lab ID: {labid}, Sample ID: {sid}", ln=True)
         pdf.set_font("DejaVu", "B", 9)
         for h, w in zip(hdrs2, col_w):
-            pdf.cell(w, 6, h, border=1, align="C")
+            pdf.cell(w,6, h, border=1, align="C")
         pdf.ln(6)
         pdf.set_font("DejaVu", "", 9)
         for row in arr:
-            row_vals = [row["analysis_date"], row["parameter"], row["analysis"], row["df"], row["mdl"], row["pql"], row["result"], row["unit"]]
+            row_vals = [ row["analysis_date"], row["parameter"], row["analysis"],
+                         row["df"], row["mdl"], row["pql"], row["result"], row["unit"] ]
             for val, w in zip(row_vals, col_w):
-                pdf.cell(w, 6, str(val), border=1, align="C")
+                pdf.cell(w,6, str(val), border=1, align="C")
             pdf.ln(6)
     
     # --- PAGE 4: Quality Control Data ---
     pdf.add_page()
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "QUALITY CONTROL DATA", ln=True, align="C")
+    pdf.cell(0,10,"QUALITY CONTROL DATA", ln=True, align="C")
     pdf.ln(2)
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 5, f"Work Order: {page2_data.get('workorder_name', '')}", ln=True, align="L")
-    pdf.cell(0, 5, f"Report ID: {page2_data.get('report_id', '')}", ln=True, align="L")
-    pdf.cell(0, 5, f"Report Date: {page2_data.get('report_date', '')}", ln=True, align="L")
+    pdf.cell(0,5, f"Work Order: {page2_data.get('workorder_name','')}", ln=True, align="L")
+    pdf.cell(0,5, f"Report ID: {page2_data.get('report_id','')}", ln=True, align="L")
+    pdf.cell(0,5, f"Report Date: {page2_data.get('report_date','')}", ln=True, align="L")
     pdf.ln(5)
 
-    # Predefined column widths:
-    mb_widths = [30, 15, 15, 70, 50]       # For Method Blank (MB) table: 5 columns, total = 180
-    lcs_widths = [25, 15, 15, 20, 20, 20, 20, 20, 10, 15]  # For LCS table: 10 columns, total = 180
-    ms_widths  = [20, 15, 15, 15, 20, 20, 20, 20, 15, 10, 10]  # For MS table: 11 columns, total = 180
+    # Predefined widths for QC tables (must sum to 180mm)
+    mb_widths = [30, 15, 15, 70, 50]       # Method Blank: 5 columns
+    lcs_widths = [25, 15, 15, 20, 20, 20, 20, 20, 10, 15]  # LCS: 10 columns
+    ms_widths  = [20, 15, 15, 15, 20, 20, 20, 20, 15, 10, 10]  # MS: 11 columns
 
+    # For each QC entry, print a header then its table.
     for qc in page3_data.get("qc_entries", []):
         pdf.set_font("DejaVu", "B", 10)
         pdf.multi_cell(effective_width, 5, f"QC Analysis (Method): {qc['qc_method']} | Parameter: {qc['parameter']}", border=0, align="L")
@@ -552,36 +556,43 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.multi_cell(effective_width, 5, f"Unit: {qc['unit']}", border=0, align="L")
         pdf.ln(3)
         if qc["qc_type"] == "MB":
-            pdf.set_font("DejaVu", "B", 9)
+            pdf.set_font("DejaVu", "B", 11)
             pdf.multi_cell(effective_width, 5, "Method Blank Data", border=0, align="L")
             pdf.ln(2)
             headers_mb = ["Parameter", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
-            draw_table_row(pdf, headers_mb, mb_widths, line_height=5, border=1, align='C', fill=True)
-            pdf.set_font("DejaVu", "", 9)
+            pdf.set_line_width(0.2)
+            pdf.set_fill_color(220,220,220)  # Light gray for header
+            draw_table_row(pdf, headers_mb, mb_widths, line_height=6, border=1, align='C', fill=True)
+            pdf.set_font("DejaVu", "", 10)
             row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc["method_blank"], qc["lab_qualifier"]]
+            # For a single row, you might choose a very light fill for zebra effect; here we leave it white.
             draw_table_row(pdf, row_data, mb_widths, line_height=5, border=1, align='C', fill=False)
             pdf.ln(5)
         elif qc["qc_type"] == "LCS":
-            pdf.set_font("DejaVu", "B", 9)
+            pdf.set_font("DejaVu", "B", 11)
             pdf.multi_cell(effective_width, 5, "LCS Data", border=0, align="L")
             pdf.ln(2)
             headers_lcs = ["Parameter", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.",
                            "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
-            draw_table_row(pdf, headers_lcs, lcs_widths, line_height=5, border=1, align='C', fill=True)
-            pdf.set_font("DejaVu", "", 9)
-            row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc["spike_conc"], qc["lcs_recovery"],
-                        qc["lcsd_recovery"], qc["rpd_lcs"], qc["recovery_limits"], qc["rpd_limits"],
-                        qc["lab_qualifier"]]
+            pdf.set_line_width(0.2)
+            pdf.set_fill_color(220,220,220)
+            draw_table_row(pdf, headers_lcs, lcs_widths, line_height=6, border=1, align='C', fill=True)
+            pdf.set_font("DejaVu", "", 10)
+            row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc["spike_conc"],
+                        qc["lcs_recovery"], qc["lcsd_recovery"], qc["rpd_lcs"],
+                        qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
             draw_table_row(pdf, row_data, lcs_widths, line_height=5, border=1, align='C', fill=False)
             pdf.ln(5)
         elif qc["qc_type"] == "MS":
-            pdf.set_font("DejaVu", "B", 9)
+            pdf.set_font("DejaVu", "B", 11)
             pdf.multi_cell(effective_width, 5, "MS Data", border=0, align="L")
             pdf.ln(2)
             headers_ms = ["Parameter", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.",
                           "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
-            draw_table_row(pdf, headers_ms, ms_widths, line_height=5, border=1, align='C', fill=True)
-            pdf.set_font("DejaVu", "", 9)
+            pdf.set_line_width(0.2)
+            pdf.set_fill_color(220,220,220)
+            draw_table_row(pdf, headers_ms, ms_widths, line_height=6, border=1, align='C', fill=True)
+            pdf.set_font("DejaVu", "", 10)
             row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc.get("sample_conc", ""),
                         qc["spike_conc"], qc.get("ms_recovery", ""), qc.get("msd_recovery", ""),
                         qc.get("rpd_ms", ""), qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
