@@ -440,45 +440,109 @@ def render_quality_control_page():
     p3 = st.session_state["page3_data"]
     p3.setdefault("qc_entries", [])
 
-    # pick analyte, method
+    qc_type = st.selectbox("QC Type", ["MB", "LCS", "MS"])
     analyte = st.selectbox("QC Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("QC Method", analyte_to_methods[analyte])
 
     with st.form("qc_form", clear_on_submit=True):
-        c1, c2, c3, c4 = st.columns(4)
+        st.write(f"Selected Analyte: {analyte}")
+        st.write(f"Selected Method: {method}")
+        c1, c2, c3 = st.columns(3)
         with c1:
-            q_unit = st.text_input("Unit","mg/L")
+            q_unit = st.text_input("Unit", "mg/L")
         with c2:
-            q_mdl = st.text_input("MDL","0.0010")
+            q_mdl = st.text_input("MDL", "0.0010")
         with c3:
-            q_pql = st.text_input("PQL","0.005")
-        with c4:
-            q_qual = st.text_input("Lab Qualifier","")
-        blank_conc = st.text_input("Method Blank Conc.","")
+            q_pql = st.text_input("PQL", "0.005")
+        q_qual = st.text_input("Lab Qualifier", "")
+        blank_conc = st.text_input("Method Blank Conc.", "")
 
-        if st.form_submit_button("Add QC Entry"):
-            q_batch = generate_qc_batch()
-            mb = generate_method_blank()
-            p3["qc_entries"].append({
-                "qc_batch": q_batch,
-                "qc_method": method,
-                "parameter": analyte,
-                "unit": q_unit,
-                "mdl": q_mdl,
-                "pql": q_pql,
-                "blank_result": blank_conc,
-                "lab_qualifier": q_qual,
-                "method_blank": mb
-            })
+        if qc_type in ["LCS", "MS"]:
+            spike_conc = st.text_input("Spike Conc.", "")
+            c4, c5 = st.columns(2)
+            with c4:
+                rec_lim = st.text_input("% Recovery Limits", "")
+            with c5:
+                rpd_lim = st.text_input("% RPD Limits", "")
+
+        if qc_type == "LCS":
+            lcs_rec = st.text_input("LCS % Recovery", "")
+            lcsd_rec = st.text_input("LCSD % Recovery", "")
+            lcs_rpd = st.text_input("LCS/LCSD % RPD", "")
+            if st.form_submit_button("Add LCS"):
+                q_batch = generate_qc_batch()
+                mb = generate_method_blank()
+                p3["qc_entries"].append({
+                    "qc_type": qc_type,
+                    "qc_batch": q_batch,
+                    "qc_method": method,
+                    "parameter": analyte,
+                    "unit": q_unit,
+                    "mdl": q_mdl,
+                    "pql": q_pql,
+                    "blank_result": blank_conc,
+                    "spike_conc": spike_conc,
+                    "lcs_rec": lcs_rec,
+                    "lcsd_rec": lcsd_rec,
+                    "lcs_rpd": lcs_rpd,
+                    "rec_limits": rec_lim,
+                    "rpd_limits": rpd_lim,
+                    "lab_qualifier": q_qual,
+                    "method_blank": mb
+                })
+
+        elif qc_type == "MS":
+            samp_conc = st.text_input("Sample Concentration", "")
+            ms_rec = st.text_input("MS % Recovery", "")
+            msd_rec = st.text_input("MSD % Recovery", "")
+            ms_rpd = st.text_input("MS/MSD % RPD", "")
+            if st.form_submit_button("Add MS"):
+                q_batch = generate_qc_batch()
+                mb = generate_method_blank()
+                p3["qc_entries"].append({
+                    "qc_type": qc_type,
+                    "qc_batch": q_batch,
+                    "qc_method": method,
+                    "parameter": analyte,
+                    "unit": q_unit,
+                    "mdl": q_mdl,
+                    "pql": q_pql,
+                    "blank_result": blank_conc,
+                    "spike_conc": spike_conc,
+                    "samp_conc": samp_conc,
+                    "ms_rec": ms_rec,
+                    "msd_rec": msd_rec,
+                    "ms_rpd": ms_rpd,
+                    "rec_limits": rec_lim,
+                    "rpd_limits": rpd_lim,
+                    "lab_qualifier": q_qual,
+                    "method_blank": mb
+                })
+        elif qc_type == "MB":
+            if st.form_submit_button("Add MB"):
+                q_batch = generate_qc_batch()
+                mb = generate_method_blank()
+                p3["qc_entries"].append({
+                    "qc_type": qc_type,
+                    "qc_batch": q_batch,
+                    "qc_method": method,
+                    "parameter": analyte,
+                    "unit": q_unit,
+                    "mdl": q_mdl,
+                    "pql": q_pql,
+                    "blank_result": blank_conc,
+                    "lab_qualifier": q_qual,
+                    "method_blank": mb
+                })
 
     st.write("**Current QC Data:**")
     if p3["qc_entries"]:
         for i, qc_ in enumerate(p3["qc_entries"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
+                st.write(f"**{i+1}.** QC Type: {qc_['qc_type']}, QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
                          f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
-                         f"PQL: {qc_['pql']}, Blank: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}")
+                         f"PQL: {qc_['pql']}, Blank: {qc_.get('blank_result', '')}, Lab Qualifier: {qc_['lab_qualifier']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_qc_{i}"):
                     del p3["qc_entries"][i]
@@ -486,8 +550,9 @@ def render_quality_control_page():
     else:
         st.info("No QC entries yet.")
 
-
     render_nav_buttons()
+
+
 
 #####################################
 # PDF GENERATION
@@ -773,63 +838,96 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, p
     pdf.set_font("DejaVu", "", 10)
     pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
     pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    pdf.ln(5)
-    
-    # Group QC data by qc_method
+    pdf.ln(4)
+
+    # Group QC entries by qc_method
     qc_by_method = defaultdict(list)
-    for qc_ in page3_data["qc_entries"]:
-        qc_by_method[qc_["qc_method"]].append(qc_)
-    
-    # Define column widths for QC table (set total = 180 mm)
-    widths_qc = [45, 20, 20, 20, 40, 35]
-    
-    for method, qcs in qc_by_method.items():
+    for qc_entry in page3_data["qc_entries"]:
+        qc_by_method[qc_entry["qc_method"]].append(qc_entry)
+
+    for qc_method, qc_entries in qc_by_method.items():
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.cell(0, 8, f"QC Analysis Method: {qc_method}", ln=True, align="L")
+        pdf.ln(2)
+
+        # Print Method Blank first for each method
         pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(0, 5, f"QC Batch: {qcs[0]['qc_batch']}", ln=True, align="L")
-        pdf.cell(0, 5, f"QC Analysis (Method): {method}", ln=True, align="L")
-        pdf.cell(0, 5, f"Method Blank: {qcs[0]['method_blank']}", ln=True, align="L")
-        pdf.ln(3)
-    
-        pdf.set_font("DejaVu", "B", 10)
-        pdf.set_fill_color(230, 230, 230)
-        headers_qc = ["Parameter", "Unit", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
-        for h, w in zip(headers_qc, widths_qc):
-            pdf.cell(w, 7, h, border=1, align="C", fill=True)
-        pdf.ln(7)
-    
+        pdf.cell(0, 7, "Method Blank", ln=True, align="L")
         pdf.set_font("DejaVu", "", 10)
-        for qc_ in qcs:
-            row_vals = [
-                qc_["parameter"],
-                qc_["unit"],
-                qc_["mdl"],
-                qc_["pql"],
-                qc_["blank_result"],
-                qc_["lab_qualifier"]
-            ]
-            for val, w in zip(row_vals, widths_qc):
-                pdf.cell(w, 7, str(val), border=1, align="C")
+        for mb_entry in [qc for qc in qc_entries if qc["qc_type"] == "MB"]:
+            pdf.cell(0, 7, f"QC Batch ID: {mb_entry['qc_batch']}, Method Blank ID: {mb_entry['method_blank']}, Analyte: {mb_entry['parameter']}, Result: {mb_entry.get('blank_result', 'N/A')} {mb_entry['unit']}, Lab Qualifier: {mb_entry['lab_qualifier']}", ln=True, align="L")
+        pdf.ln(2)
+
+        # Print LCS Data
+        lcs_entries = [qc for qc in qc_entries if qc["qc_type"] == "LCS"]
+        if lcs_entries:
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(0, 7, "LCS Data", ln=True, align="L")
+            pdf.set_font("DejaVu", "", 10)
+            headers_lcs = ["QC Batch", "Analyte", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec", "LCSD % Rec", "LCS/LCSD % RPD", "% Rec Limits", "% RPD Limits", "Lab Qualifier"]
+            widths_lcs = [25, 25, 10, 15, 15, 20, 20, 20, 25, 25, 25, 20]
+            for h, w in zip(headers_lcs, widths_lcs):
+                pdf.cell(w, 7, h, border=1, align="C", fill=True)
             pdf.ln(7)
-    
-        pdf.ln(10)
-    
-    pdf.ln(8)
-    pdf.set_font("DejaVu", "I", 8)
-    pdf.multi_cell(0, 5, "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
-                         "Test results reported relate only to the samples as received by the laboratory.")
-    
-    pdf.set_y(-15)
-    pdf.set_font("DejaVu", "I", 8)
-    pdf.cell(0, 10, f"Page {pdf.page_no()} of {total_pages}", 0, 0, "C")
-    
-    buffer = io.BytesIO()
-    pdf.output(buffer)
-    buffer.seek(0)
-    return buffer.read()
+
+            for lcs_entry in lcs_entries:
+                row_lcs = [
+                    lcs_entry["qc_batch"],
+                    lcs_entry["parameter"],
+                    lcs_entry["unit"],
+                    lcs_entry["mdl"],
+                    lcs_entry["pql"],
+                    lcs_entry["spike_conc"],
+                    lcs_entry["lcs_rec"],
+                    lcs_entry["lcsd_rec"],
+                    lcs_entry["lcs_rpd"],
+                    lcs_entry["rec_limits"],
+                    lcs_entry["rpd_limits"],
+                    lcs_entry["lab_qualifier"]
+                ]
+                for val, w in zip(row_lcs, widths_lcs):
+                    pdf.cell(w, 7, str(val), border=1, align="C")
+                pdf.ln(7)
+            pdf.ln(5)
+
+        # Print MS Data
+        ms_entries = [qc for qc in qc_entries if qc["qc_type"] == "MS"]
+        if ms_entries:
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(0, 7, "MS/MSD Data", ln=True, align="L")
+            pdf.set_font("DejaVu", "", 10)
+            headers_ms = ["QC Batch", "Analyte", "Unit", "MDL", "PQL", "Sample Conc.", "Spike Conc.", "MS % Rec", "MSD % Rec", "MS/MSD % RPD", "% Rec Limits", "% RPD Limits", "Lab Qualifier"]
+            widths_ms = [25, 25, 10, 15, 15, 25, 20, 20, 20, 25, 25, 25, 20]
+            for h, w in zip(headers_ms, widths_ms):
+                pdf.cell(w, 7, h, border=1, align="C", fill=True)
+            pdf.ln(7)
+            for ms_entry in ms_entries:
+                row_ms = [
+                    ms_entry["qc_batch"],
+                    ms_entry["parameter"],
+                    ms_entry["unit"],
+                    ms_entry["mdl"],
+                    ms_entry["pql"],
+                    ms_entry["samp_conc"],
+                    ms_entry["spike_conc"],
+                    ms_entry["ms_rec"],
+                    ms_entry["msd_rec"],
+                    ms_entry["ms_rpd"],
+                    ms_entry["rec_limits"],
+                    ms_entry["rpd_limits"],
+                    ms_entry["lab_qualifier"]
+                ]
+                for val, w in zip(row_ms, widths_ms):
+                    pdf.cell(w, 7, str(val), border=1, align="C")
+                pdf.ln(7)
+            pdf.ln(10)
+    return pdf
 
 
+
+#####################################
 # MAIN APP
+#####################################
 
 def main():
     st.title("Water Quality COA")
@@ -866,13 +964,16 @@ def main():
                 cover_data=st.session_state["cover_data"],
                 page1_data=st.session_state["page1_data"],
                 page2_data=st.session_state["page2_data"],
-                page3_data=st.session_state["page3_data"]
+                page3_data=st.session_state["page3_data"],
             )
-            st.download_button("Download PDF",
+            st.download_button(
+                label="Download PDF Report",
                 data=pdf_bytes,
-                file_name="COA_Report.pdf",
+                file_name="wq_coa_report.pdf",
                 mime="application/pdf",
-                key="dl_pdf_btn")
+            )
+
+
 
 if __name__ == "__main__":
     main()
