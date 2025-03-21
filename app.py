@@ -90,11 +90,7 @@ def address_autofill_field(label, default=""):
     return query, None
 
 def draw_single_line_row(pdf, data, widths, height, border=1, align='C', fill=False):
-    """
-    Draws a single-line row using pdf.cell() for each cell.
-    No wrapping is done. Text will be clipped if too long.
-    """
-    x_start = pdf.get_x()
+    """Draw a single-line row using pdf.cell() for each cell with fixed height."""
     for text, w in zip(data, widths):
         pdf.cell(w, height, text, border=border, align=align, fill=fill)
     pdf.ln(height)
@@ -426,9 +422,10 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
     pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
-    # Set cell padding to 0 (if supported)
-    if hasattr(pdf, "set_cell_padding"):
+    try:
         pdf.set_cell_padding(0)
+    except AttributeError:
+        pass
     pdf.set_font("DejaVu", "", 10)
     effective_width = 180
     total_pages = 4
@@ -532,29 +529,23 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0,5, f"Report Date: {page2_data.get('report_date','')}", ln=True, align="L")
     pdf.ln(5)
 
-    # Set up fixed column widths and row height for single-line cells
-    # Row height: 7 mm, Font: 11pt
-    row_height = 7
+    # Fixed column widths and row height for single-line cells, with font size 11
+    row_height = 7  # fixed row height in mm
 
     # Method Blank (MB) Table: [Analyte, MDL, PQL, Method Blank Conc., Lab Qualifier]
-    mb_widths = [40, 25, 25, 50, 40]  # Sum = 180
-
+    mb_widths = [40, 25, 25, 50, 40]
     # LCS Table: [Analyte, MDL, PQL, Spike Conc., LCS % Rec., LCSD % Rec., LCS/LCSD % RPD, % Rec. Limits, % RPD Limits, Lab Qualifier]
-    lcs_widths = [30, 17, 17, 17, 17, 17, 16, 16, 16, 16]  # Sum = approx 181 (adjust slightly if needed)
-
+    lcs_widths = [30, 17, 17, 17, 17, 17, 16, 16, 16, 16]
     # MS Table: [Analyte, MDL, PQL, Samp Conc., Spike Conc., MS % Rec., MSD % Rec., MS/MSD % RPD, % Rec. Limits, % RPD Limits, Lab Qualifier]
-    ms_widths = [30, 15, 14, 15, 14, 15, 14, 15, 14, 14, 14]  # Sum = approx 180
+    ms_widths = [30, 15, 14, 15, 14, 15, 14, 15, 14, 14, 14]
 
-    # For each QC entry, print a header block and then one table header followed by its data row.
-    pdf.set_cell_padding(0)  # Remove cell padding if supported
     for qc in page3_data.get("qc_entries", []):
-        # QC Header Block (left aligned)
+        # QC Header Block
         pdf.set_font("DejaVu", "B", 12)
-        pdf.multi_cell(effective_width, 5, f"QC Analysis (Method): {qc['qc_method']} | Parameter: {qc['parameter']}", border=0, align="L")
+        pdf.multi_cell(effective_width, 5, f"QC Analysis (Method): {qc['qc_method']} | Parameter: {qc['qc_parameter'] if 'qc_parameter' in qc else qc['parameter']}", border=0, align="L")
         pdf.multi_cell(effective_width, 5, f"QC Batch: {qc['qc_batch']}", border=0, align="L")
         pdf.multi_cell(effective_width, 5, f"Unit: {qc['unit']}", border=0, align="L")
         pdf.ln(3)
-
         if qc["qc_type"] == "MB":
             pdf.set_font("DejaVu", "B", 11)
             pdf.multi_cell(effective_width, 5, "Method Blank Data", border=0, align="L")
@@ -593,9 +584,8 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
     pdf.multi_cell(effective_width, 5,
-        "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
-        "Test results reported relate only to the samples as received by the laboratory."
-    )
+                   "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
+                   "Test results reported relate only to the samples as received by the laboratory.")
     pdf.set_y(-15)
     pdf.set_font("DejaVu", "I", 8)
     pdf.cell(0,10, f"Page {pdf.page_no()} of {{nb}}", 0, 0, "C")
@@ -604,13 +594,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.output(buffer)
     buffer.seek(0)
     return buffer.read()
-
-# Define the new function for single-line rows.
-def draw_single_line_row(pdf, data, widths, height, border=1, align='C', fill=False):
-    x_start = pdf.get_x()
-    for text, w in zip(data, widths):
-        pdf.cell(w, height, text, border=border, align=align, fill=fill)
-    pdf.ln(height)
 
 ########################################
 # MAIN APP
