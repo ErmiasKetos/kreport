@@ -1,3 +1,4 @@
+
 import streamlit as st
 from fpdf import FPDF
 import datetime
@@ -6,7 +7,6 @@ import random
 import string
 import requests
 from collections import defaultdict
-
 
 def reset_app():
     """Clears all session state variables and reloads the app."""
@@ -22,7 +22,7 @@ class PDF(FPDF):
         self.set_y(-15)
         # If you have DejaVu fonts, use them:
         self.set_font("DejaVu", "I", 8)
-        self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
+        self.cell(0, 10, f"Page {self.page_no()} of {{nb}}\", 0, 0, \"C\")
 
 #####################################
 # Helper Functions
@@ -41,344 +41,284 @@ def generate_method_blank():
     return letters + digits
 
 def generate_coc_number():
-    return "COC-" + ''.join(random.choices("0123456789", k=6))
+    return "COC-" + ''.join(random.choices("0123456789", k=8))
 
-def generate_po_number():
-    return "PO-KL" + datetime.datetime.today().strftime("%Y%m") + ''.join(random.choices("0123456789", k=4))
 
-def get_date_input(label, default_str=""):
+
+#####################################
+# Streamlit UI Functions
+#####################################
+
+PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control"]
+#Predefined lists for selecting parameters
+analyte_to_methods = {
+    "Total Dissolved Solids": ["EPA 160.1", "SM 2540C"],
+    "Total Suspended Solids": ["EPA 160.2", "SM 2540D"],
+    "pH": ["EPA 150.1", "SM 4500-H+ B"],
+    "Conductivity": ["EPA 120.1", "SM 2510B"],
+    "Turbidity": ["EPA 180.1", "SM 2130B"],
+    "Chlorine": ["EPA 330.5", "SM 4500-Cl G"],
+    "Dissolved Oxygen": ["EPA 360.1", "SM 4500-O G"],
+    "BOD": ["EPA 405.1", "SM 5210B"],
+    "COD": ["EPA 410.4", "SM 5220D"],
+    "Oil and Grease": ["EPA 1664", "SM 5520B"],
+    "Total Coliform": ["SM 9221B", "SM 9221F"],
+    "Fecal Coliform": ["SM 9222D", "SM 9222G"],
+    "Enterococcus": ["EPA 1600", "SM 9230B"],
+    "Nitrate": ["EPA 300.0", "SM 4500-NO3- E"],
+    "Nitrite": ["EPA 354.1", "SM 4500-NO2- B"],
+    "Ammonia": ["EPA 350.1", "SM 4500-NH3 G"],
+    "TKN": ["EPA 351.2", "SM 4500-Norg D"],
+    "Phosphorus": ["EPA 365.1", "SM 4500-P F"],
+    "Sulfate": ["EPA 300.0", "SM 4500-SO4 2- E"],
+    "Chloride": ["EPA 300.0", "SM 4500-Cl- E"],
+    "Fluoride": ["EPA 340.2", "SM 4500-F- C"],
+    "Bromide": ["EPA 300.0", "SM 4500-Br- B"],
+    "Calcium": ["EPA 200.7", "SM 3120B"],
+    "Magnesium": ["EPA 200.7", "SM 3120B"],
+    "Sodium": ["EPA 200.7", "SM 3120B"],
+    "Potassium": ["EPA 200.7", "SM 3120B"],
+    "Iron": ["EPA 200.7", "SM 3120B"],
+    "Manganese": ["EPA 200.7", "SM 3120B"],
+    "Aluminum": ["EPA 200.7", "SM 3120B"],
+    "Arsenic": ["EPA 200.8", "SM 3113B"],
+    "Cadmium": ["EPA 200.8", "SM 3113B"],
+    "Chromium": ["EPA 200.8", "SM 3113B"],
+    "Copper": ["EPA 200.8", "SM 3113B"],
+    "Lead": ["EPA 200.8", "SM 3113B"],
+    "Mercury": ["EPA 245.1", "SM 3112B"],
+    "Nickel": ["EPA 200.8", "SM 3113B"],
+    "Selenium": ["EPA 200.8", "SM 3113B"],
+    "Silver": ["EPA 200.8", "SM 3113B"],
+    "Zinc": ["EPA 200.7", "SM 3120B"],
+    "Benzene": ["EPA 624", "SM 6200B"],
+    "Toluene": ["EPA 624", "SM 6200B"],
+    "Ethylbenzene": ["EPA 624", "SM 6200B"],
+    "Xylene": ["EPA 624", "SM 6200B"],
+    "MTBE": ["EPA 624", "SM 6200B"],
+    "Naphthalene": ["EPA 625", "SM 6250B"],
+    "Phenanthrene": ["EPA 625", "SM 6250B"],
+    "Anthracene": ["EPA 625", "SM 6250B"],
+    "Pyrene": ["EPA 625", "SM 6250B"],
+    "Benzo(a)anthracene": ["EPA 625", "SM 6250B"],
+    "Chrysene": ["EPA 625", "SM 6250B"],
+    "Benzo(b)fluoranthene": ["EPA 625", "SM 6250B"],
+    "Benzo(k)fluoranthene": ["EPA 625", "SM 6250B"],
+    "Benzo(a)pyrene": ["EPA 625", "SM 6250B"],
+    "Indeno(1,2,3-cd)pyrene": ["EPA 625", "SM 6250B"],
+    "Dibenz(a,h)anthracene": ["EPA 625", "SM 6250B"],
+    "Benzo(g,h,i)perylene": ["EPA 625", "SM 6250B"],
+    "PCB": ["EPA 608", "SM 608"],
+    "Pesticides": ["EPA 608", "SM 608"],
+    "Herbicides": ["EPA 632", "SM 632"],
+    "VOCs": ["EPA 624", "SM 6200B"],
+    "SVOCs": ["EPA 625", "SM 6250B"],
+    "Metals": ["EPA 200.8", "SM 3113B"],
+    "Cyanide": ["EPA 335.4", "SM 4500-CN- E"],
+    "Sulfide": ["EPA 376.1", "SM 4500-S2- D"],
+    "Asbestos": ["EPA 100.2", "SM 2550"],
+    "Color": ["SM 2120B"],
+    "Odor": ["SM 2150B"],
+    "Taste": ["SM 2160"],
+    "Surfactants": ["EPA 420.1", "SM 5540C"],
+    "Phenols": ["EPA 420.2", "SM 5530C"],
+    "Radioactivity": ["EPA 900.0", "SM 7110C"],
+    "TOC": ["SM 5310B"],
+    "DOC": ["SM 5310B"],
+    "Purgeable Halocarbons": ["EPA 601", "SM 6200B"],
+    "Extractable Organohalides": ["EPA 625", "SM 6250B"],
+    "Aldehydes": ["EPA 556", "SM 6200B"],
+    "Ketones": ["EPA 624", "SM 6200B"],
+    "Alcohols": ["EPA 603", "SM 6200B"],
+    "Organic Acids": ["EPA 625", "SM 6250B"],
+    "PCBs": ["EPA 608", "SM 608"],
+    "Pesticides": ["EPA 608", "SM 608"],
+    "Herbicides": ["EPA 632", "SM 632"],
+    "Dioxins and Furans": ["EPA 1613", "SM 1613"],
+    "PAHs": ["EPA 625", "SM 6250B"],
+    "BTEX": ["EPA 624", "SM 6200B"],
+    "TPH": ["EPA 8015", "SM 8015"],
+    "Oil and Grease": ["EPA 1664", "SM 5520B"],
+    "Fecal Coliform":  ["SM 9222D", "SM 9222G"],
+    "Total Coliform": ["SM 9221B", "SM 9221F"],
+    "E. coli": ["SM 9223B"],
+    "Enterococcus": ["EPA 1600", "SM 9230B"],
+    "Radioactivity": ["EPA 900.0", "SM 7110C"],
+    "Radon": ["EPA 913", "SM 7500-Rn"],
+    "Strontium-90": ["EPA 905", "SM 7500-Sr"],
+    "Tritium": ["EPA 906", "SM 4500-H3"],
+    "Gross Alpha/Beta": ["EPA 900", "SM 7110B"],
+    "Radium-226": ["EPA 903", "SM 7500-Ra"],
+    "Radium-228": ["EPA 904", "SM 7500-Ra"],
+    "Uranium": ["EPA 200.8", "SM 3125"],
+    "Plutonium": ["EPA 909", "SM 7500-Pu"],
+    "Americium": ["EPA 910", "SM 7500-Am"],
+}
+
+
+def get_date_input(label, default_value=None):
     """
-    Wrapper for st.date_input that handles default string in '%m/%d/%Y' format.
-    Returns a string formatted as '%m/%d/%Y'.
+    Displays a date input field in Streamlit.
+
+    Args:
+        label (str): The label for the date input field.
+        default_value (str, optional): The default date value in "MM/DD/YYYY" format.
+            If None, defaults to today's date.
+
+    Returns:
+        datetime.date: The selected date as a datetime.date object.  Returns None
+                       if the user doesn't select a date.
     """
-    if default_str:
+    if default_value:
         try:
-            default_date = datetime.datetime.strptime(default_str, "%m/%d/%Y").date()
-        except Exception:
+            default_date = datetime.datetime.strptime(default_value, "%m/%d/%Y").date()
+        except ValueError:
+            st.error(f"Invalid default date format. Please use MM/DD/YYYY.  Using today's date.")
             default_date = datetime.date.today()
     else:
         default_date = datetime.date.today()
-    selected_date = st.date_input(label, value=default_date)
-    return selected_date.strftime("%m/%d/%Y")
+
+    selected_date = st.date_input(label, default_date)
+    return selected_date.strftime("%m/%d/%Y") #return as string in consistent format
 
 
-
-
-def address_autofill_field(label, default=""):
-
-    query = st.text_input(label, value=default, key=label)
-    suggestions = []
-    address_details = None
-
-    if len(query) >= 3:
-        url = "https://nominatim.openstreetmap.org/search"
-        params = {
-            "q": query,
-            "format": "json",
-            "addressdetails": 1,
-            "limit": 3,
-            "countrycodes": "us" 
-        }
-        headers = {"User-Agent": "YourAppName/1.0 (your.email@example.com)"}
-        response = requests.get(url, params=params, headers=headers)
-        if response.status_code == 200:
-            results = response.json()
-            for candidate in results:
-                addr = candidate.get("address", {})
-                # Full address for display
-                full_address = candidate.get("display_name", "")
-                # Extract only the street-level info using house_number and road.
-                house = addr.get("house_number", "")
-                road = addr.get("road", "")
-                street = f"{house} {road}".strip() if house or road else ""
-                suggestions.append((full_address, street, addr))
-        else:
-            st.error("Error fetching address suggestions from Nominatim.")
-
-    if suggestions:
-        # Use full address for the selectbox display.
-        display_names = [s[0] for s in suggestions]
-        selected = st.selectbox(f"Select a suggested {label.lower()}:", display_names, key=label+"_suggestions")
-        for disp, street_val, addr in suggestions:
-            if disp == selected:
-                address_details = addr
-                selected_street = street_val
-                break
-        return selected_street, address_details
-
-    return query, None
-
-
-
-# Mapping of analyte to list of possible methods
-analyte_to_methods = {
-    "Alkalinity": ["SM 2320 B-1997"],
-    "Ammonia": ["SM 4500-NH₃ C"],
-    "Bromate": ["EPA 300.1", "EPA 302.0", "EPA 317.0", "EPA 321.8", "EPA 326.0", "EPA 557.0"],
-    "Bromide": ["EPA 300.0", "EPA 300.1", "EPA 317.0", "EPA 326.0"],
-    "Calcium": ["EPA 200.5", "EPA 200.7", "SM 3111 B-1999", "SM 3120 B-1999", "SM 3500-Ca B-1997"],
-    "Chlorate": ["EPA 300.0", "EPA 300.1"],
-    "Chloride": ["EPA 300.0", "EPA 300.1", "SM 4110B-2000", "SM 4500-Cl- B-1997", "SM 4500-Cl- D-1997"],
-    "Chlorine Dioxide": ["EPA 327.0", "SM 4500-ClO2 D-2000", "SM 4500-ClO2 E-2000"],
-    "Chlorine, Combined": ["EPA 334.0", "SM 4500-Cl D-1997"],
-    "Chlorine, Free Available": ["EPA 334.0", "SM 4500-Cl D-1997", "SM 4500-Cl E-1997", "SM 4500-Cl F-1997", "SM 4500-Cl G-1997"],
-    "Chlorine, Total Residual": ["EPA 334.0", "SM 4500-Cl D-1997", "SM 4500-Cl E-1997", "SM 4500-Cl F-1997", "SM 4500-Cl G-1997"],
-    "Chlorite": ["EPA 300.0", "EPA 300.1", "EPA 317.0", "EPA 326.0", "EPA 327.0", "SM 4500-ClO2 E-1997"],
-    "Conductivity": ["SM 2510 B-1997"],
-    "Cyanide": ["EPA 335.4", "Kelada-01 Revision 1.2", "Quickchem 10-204-00-1-X", "OIA-1677, DW"],
-    "Cyanide, Total": ["SM 4500-CN E-1999", "SM 4500-CN F-1999"],
-    "Cyanide, amenable": ["SM 4500-CN G-1999"],
-    "Dissolved Organic Carbon DOC": ["EPA 415.3 Rev. 1.1", "EPA 415.3 Rev. 1.2"],
-    "Fluoride": ["EPA 300.0", "EPA 300.1", "SM 4110B-2000", "SM 4500-F C-1997", "SM 4500-F B,D-1997", "SM 4500-F E-1997"],
-    "Hardness": ["SM 2340 C-1997"],
-    "Hardness (Calculation)": ["EPA 200.7", "SM 2340 B-1997", "SM 3111 B-1999", "SM 3120 B-1999"],
-    "Hydrogen Ion (pH)": ["EPA 150.1", "EPA 150.2", "SM 4500-H\\+\\ B-1997"],
-    "Magnesium": ["EPA 200.5", "EPA 200.7", "SM 3111 B-1999", "SM 3120 B-1999", "SM 3500-Mg B-1997"],
-    "Microplastics > 500 µm": ["SWB-MP2-rev1"],
-    "Microplastics >500 µm": ["SWB-MP1-rev1"],
-    "Microplastics ≤212 - >20 µm": ["SWB-MP2-rev1"],
-    "Microplastics ≤212 - >50 µm": ["SWB-MP1-rev1"],
-    "Microplastics ≤500 - >212 µm": ["SWB-MP1-rev1", "SWB-MP2-rev1"],
-    "Nickel": ["SM 3500-Ni D", "EPA 200.8"],
-    "Nitrate": ["EPA 300.0", "EPA 300.1", "SM 4110B-2000", "SM 4500-NO3-D-1997", "SM 4500-NO3 E-1997", "SM 4500-NO3 F-1997", "Hach 10206"],
-    "Nitrate (Calculation)": ["EPA 353.2"],
-    "Nitrite": ["EPA 300.0", "EPA 300.1", "EPA 353.2", "SM 4110B-2000", "SM 4500-NO3 E-1997"],
-    "Nitrite ": ["SM 4500-NO2 B-1997", "SM 4500-NO3 F-1997"],
-    "Organic carbon-Dissolved (DOC)": ["SM 5310 B-2000", "SM 5310C-2000", "SM 5310D-2000"],
-    "Organic carbon-Total (TOC)": ["SM 5310 B-2000", "SM 5310C-2000", "SM 5310D-2000"],
-    "Perchlorate": ["EPA 314.0", "EPA 314.1", "EPA 314.2", "EPA 331.0", "EPA 332.0"],
-    "Phosphate, Ortho": ["EPA 300.0", "EPA 300.1", "EPA 365.1", "SM 4110B-2000", "SM 4500-P E-1997", "SM 4500-P F -1997"],
-    "Potassium": ["EPA 200.7", "SM 3111 B-1999", "SM 3120 B-1999", "SM 3500 K C-1997"],
-    "Residue, Filterable TDS": ["SM 2540 C-1997"],
-    "Silica": ["EPA 200.5", "EPA 200.7", "SM 3120 B-1999", "SM 4500-SiO2 C-1997", "SM 4500-SiO2 D-1997", "SM 4500-SiO2 E-1997"],
-    "Sodium": ["EPA 200.5", "EPA 200.7", "SM 3111 B-1999"],
-    "Specific UV Absorbance SUVA": ["EPA 415.3 Rev. 1.1", "EPA 415.3 Rev. 1.2"],
-    "Sulfate": ["EPA 300.0", "EPA 300.1", "EPA 375.2", "SM 4110B-2000", "SM 4500-SO4 C,D-1997", "SM 4500-SO4 E-1997", "SM 4500-SO4 F -1997"],
-    "Surfactants": ["SM 5540C-2000"],
-    "Total Organic Carbon TOC": ["EPA 415.3 Rev. 1.1", "EPA 415.3 Rev. 1.2"],
-    "Turbidity": ["EPA 180.1", "SM 2130B-2001", "Hach 10258 Rev. 2.0"],
-    "UV254": ["EPA 415.3 Rev. 1.1", "EPA 415.3 Rev. 1.2", "SM 5910B-2011"]
-}
-
-#####################################
-# PAGES
-#####################################
-PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control Data"]
-
-#####################################
-# 1) Ensure we only do initialization once
-#####################################
-if "initialized" not in st.session_state:
-    st.session_state.initialized = True
-    # We start on page 0 => cover page
-    st.session_state.current_page = 0
-    
-    # Prepare each dictionary if not present
-    st.session_state.setdefault("cover_data", {})
-    st.session_state.setdefault("page1_data", {})
-    st.session_state.setdefault("page2_data", {})
-    st.session_state.setdefault("page3_data", {})
-
-#####################################
-# 2) NAVBAR
-#####################################
 def render_navbar():
-    # Show progress
-    progress = int((st.session_state.current_page + 1) / len(PAGES) * 100)
-    st.markdown(f"""
-    <div style="width: 100%; background-color: #eee; border-radius: 4px; margin-bottom: 16px;">
-      <div style="height: 16px; background: linear-gradient(90deg, #2196F3, #4CAF50); width: {progress}%;">
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    nav_cols = st.columns(len(PAGES))
+    """Renders the navigation bar at the top of the app."""
+    cols = st.columns(len(PAGES))
     for i, page_name in enumerate(PAGES):
-        # unique key: e.g. nav_btn_cover, nav_btn_sample, ...
-        btn_key = f"nav_btn_{page_name.replace(' ','_')}_{i}"
-        if nav_cols[i].button(page_name, key=btn_key):
+        if cols[i].button(page_name):
             st.session_state.current_page = i
-
-#####################################
-# 3) Next/Back
-#####################################
+            st.rerun()  # Use st.rerun() for consistency
 
 def render_nav_buttons():
-    col1, col2 = st.columns([1, 1])
-    
-    # Back button (show only if not on the first page)
+    """Renders the navigation buttons at the bottom of each page."""
+    cols = st.columns(3)  # Create three columns for layout
     if st.session_state.current_page > 0:
-        if col1.button("Back", key=f"back_{st.session_state.current_page}"):
+        if cols[0].button("Previous"):
             st.session_state.current_page -= 1
             st.rerun()
-
-    # Next button (show only if not on the last page)
+    cols[1].empty()  # Leave the middle column empty for spacing
     if st.session_state.current_page < len(PAGES) - 1:
-        if col2.button("Next", key=f"next_{st.session_state.current_page}"):
+        if cols[2].button("Next"):
             st.session_state.current_page += 1
             st.rerun()
 
-
-#####################################
-# 4) Page Renders
-#####################################
 def render_cover_page():
-    st.header("Cover Page")
-    cover = st.session_state["cover_data"]
-    # If empty, init with default
-    if not cover:
-        cover["lab_name"] = "KELP Laboratory"
-        cover["work_order"] = "WO" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
-        cover["project_name"] = ""
-        cover["client_name"] = ""
-        cover["street"] = ""
-        cover["city"] = ""
-        cover["state"] = ""
-        cover["zip"] = ""
-        cover["country"] = ""
-        cover["phone"] = ""
-        default_date = datetime.date.today().strftime("%m/%d/%Y")
-        cover["date_samples_received"] = ""
-        cover["date_reported"] = ""
-        cover["analysis_type"] = "Environmental"
-        cover["coc_number"] = generate_coc_number()
-        cover["po_number"] = generate_po_number()
-        cover["report_title"] = "CERTIFICATE OF ANALYSIS"
-        cover["comments"] = "None"
-        cover["signatory_name"] = ""
-        cover["signatory_title"] = "Lab Manager"
+    """Renders the cover page form."""
+    st.header("Cover Page Information")
+    if "cover_data" not in st.session_state:
+        st.session_state["cover_data"] = {
+            "report_id": generate_id(),
+            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
+            "client_name": "",
+            "address_line": "",
+            "phone": "",
+            "project_name": "",
+            "work_order": "",
+            "analysis_type": "",
+            "coc_number": "",
+            "po_number": "",
+            "date_samples_received": "",
+            "comments": "",
+            "signatory_name": "",
+            "signatory_title": "",
+        }
 
-    cover["project_name"] = st.text_input("Project Name", value=cover.get("project_name",""))
-    cover["client_name"] = st.text_input("Client Name", value=cover.get("client_name",""))
-    selected_street, addr_details = address_autofill_field("Street Address", default=cover.get("street", ""))
-    cover["street"] = selected_street
+    cover_data = st.session_state["cover_data"]
 
-    
-    if addr_details:
-      
-        cover["city"] = addr_details.get("city", addr_details.get("town", addr_details.get("village", "")))
-        cover["state"] = addr_details.get("state", "")
-        cover["zip"] = addr_details.get("postcode", "")
-        cover["country"] = addr_details.get("country", "")
-    else:
-       
-        cover["city"] = st.text_input("City", value=cover.get("city", ""))
-        cover["state"] = st.text_input("State/Province", value=cover.get("state", ""))
-        cover["zip"] = st.text_input("Zip Code", value=cover.get("zip", ""))
-        cover["country"] = st.text_input("Country", value=cover.get("country", ""))
-    
-    cover["analysis_type"] = st.text_input("Analysis Type", value=cover.get("analysis_type", "Environmental"))
-    cover["date_samples_received"] = get_date_input("Date Samples Received", default_str=cover.get("date_samples_received", ""))
-    cover["date_reported"] = get_date_input("Date Reported",default_str=cover.get("date_reported", datetime.date.today().strftime("%m/%d/%Y")))
-    cover["comments"] = st.text_area("Comments/Narrative", value=cover.get("comments","None"))
+    with st.form("cover_form"):
+        cover_data["client_name"] = st.text_input("Client Name", cover_data["client_name"])
+        cover_data["address_line"] = st.text_input("Address", cover_data["address_line"])
+        cover_data["phone"] = st.text_input("Phone", cover_data["phone"])
+        cover_data["project_name"] = st.text_input("Project Name", cover_data["project_name"])
+        cover_data["work_order"] = st.text_input("Work Order #", cover_data["work_order"])
+        cover_data["analysis_type"] = st.text_input("Analysis Type", cover_data["analysis_type"])
+        cover_data["coc_number"] = st.text_input("COC #", cover_data["coc_number"])
+        cover_data["po_number"] = st.text_input("PO #", cover_data["po_number"])
+        cover_data["date_samples_received"] = get_date_input("Date Samples Received", cover_data["date_samples_received"])
+        cover_data["comments"] = st.text_area("Comments / Case Narrative", cover_data["comments"], height=100)
+        cover_data["signatory_name"] = st.text_input("Signatory Name", cover_data["signatory_name"])
+        cover_data["signatory_title"] = st.text_input("Signatory Title", cover_data["signatory_title"])
+        # Report ID and Date are set automatically and not editable
+        st.text_input("Report ID", value=cover_data["report_id"], disabled=True)
+        st.text_input("Report Date", value=cover_data["report_date"], disabled=True)
 
-    # rebuild address
-    cover["address_line"] = (
-        cover["street"] + ", " + 
-        cover["city"] + ", " +
-        cover["state"] + " " + 
-        cover["zip"] + ", " + 
-        cover["country"]
-    )
-
-    sample_type = st.selectbox("Sample Type", options=["GW","DW","WW","IW","SW"], index=0)
-    try:
-        dt = datetime.datetime.strptime(cover["date_samples_received"], "%m/%d/%Y")
-        date_str = dt.strftime("%Y%m%d")
-    except:
-        date_str = datetime.date.today().strftime("%Y%m%d")
-    cover["work_order"] = f"{sample_type}-{date_str}-0001"
-
-    st.subheader("Lab Manager Signatory")
-    cover["signatory_name"] = st.text_input("Lab Manager Name", value=cover.get("signatory_name",""))
-    cover["signatory_title"] = st.text_input("Lab Manager Title", value=cover.get("signatory_title","Lab Manager"))
+        submitted = st.form_submit_button("Save Cover Page Data")
+        if submitted:
+            st.success("Cover Page data saved!")
 
     render_nav_buttons()
+
+
 
 def render_sample_summary_page():
+    """Renders the sample summary page."""
     st.header("Sample Summary")
-    p1 = st.session_state["page1_data"]
-    # Guarantee 'samples' is present
-    p1.setdefault("samples", [])
+    if "page1_data" not in st.session_state:
+        st.session_state["page1_data"] = {
+            "report_id": generate_id(),
+            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
+            "samples": [],
+        }
+    page1_data = st.session_state["page1_data"]
 
-    if "report_id" not in p1:
-        p1["report_id"] = "".join(random.choices("0123456789", k=7))
-        p1["report_date"] = datetime.date.today().strftime("%m/%d/%Y")
-        p1["client_name"] = st.session_state["cover_data"].get("client_name","")
-        p1["client_address"] = st.session_state["cover_data"].get("address_line","")
-        p1["project_id"] = "PJ" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
-
-
-    
     with st.form("sample_form", clear_on_submit=True):
-        lab_id = st.text_input("Lab ID (blank=auto)", "")
-        s_id = st.text_input("Sample ID","")
-        mat = st.text_input("Matrix","Water")
-        d_collect = get_date_input("Date Collected", "")
-        d_recv = get_date_input("Date Received", st.session_state["cover_data"].get("date_samples_received", ""))
+        lab_id = st.text_input("Lab ID", generate_id("LIMS"))
+        sample_id = st.text_input("Sample ID")
+        matrix = st.selectbox("Matrix", ["Water", "Soil", "Air", "Other"])
+        date_collected = get_date_input("Date Collected")
+        date_received = get_date_input("Date Received")
 
-    
         if st.form_submit_button("Add Sample"):
-            if not lab_id.strip():
-                lab_id = generate_id()
-            
-            # Ensure "Date Samples Received" is updated if empty
-            if not st.session_state["cover_data"].get("date_samples_received"):
-                st.session_state["cover_data"]["date_samples_received"] = d_recv
-
-    
-            p1["samples"].append({
+            page1_data["samples"].append({
                 "lab_id": lab_id,
-                "sample_id": s_id,
-                "matrix": mat,
-                "date_collected": d_collect,
-                "date_received": d_recv
+                "sample_id": sample_id,
+                "matrix": matrix,
+                "date_collected": date_collected,
+                "date_received": date_received,
             })
 
-
-
-    st.write("**Current Water Samples:**")
-    if p1["samples"]:
-        for i, s_ in enumerate(p1["samples"]):
+    st.write("**Current Samples:**")
+    if page1_data["samples"]:
+        for i, sample in enumerate(page1_data["samples"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** Lab ID: {s_['lab_id']}, Sample ID: {s_['sample_id']}, Matrix: {s_['matrix']}, "
-                         f"Collected: {s_['date_collected']}, Received: {s_['date_received']}")
+                st.write(f"**{i+1}.** Lab ID: {sample['lab_id']}, Sample ID: {sample['sample_id']}, "
+                         f"Matrix: {sample['matrix']}, Date Collected: {sample['date_collected']}, "
+                         f"Date Received: {sample['date_received']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_sample_{i}"):
-                    del p1["samples"][i]
+                    del page1_data["samples"][i]
                     st.rerun()
     else:
-        st.info("No samples yet.")
+        st.info("No samples added yet.")
 
-
+    # Display Report ID and Report Date (from shared state)
+    st.text_input("Report ID", value=page1_data["report_id"], disabled=True)
+    st.text_input("Report Date", value=page1_data["report_date"], disabled=True)
     render_nav_buttons()
 
+
+
 def render_analytical_results_page():
+    """Renders the analytical results page."""
     st.header("Analytical Results")
+    if "page2_data" not in st.session_state:
+        st.session_state["page2_data"] = {
+            "report_id": generate_id(),
+            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
+            "workorder_name": st.session_state["cover_data"].get("work_order",""), #default
+            "results": [],
+        }
     p2 = st.session_state["page2_data"]
-    p2.setdefault("results", [])
+    p2["workorder_name"] = st.text_input("Work Order #",p2["workorder_name"])
 
-    
-    if "workorder_name" not in p2:
-        p2["workorder_name"] = st.session_state["cover_data"].get("work_order","WO-UNKNOWN")
-        p2["report_id"] = st.session_state["page1_data"].get("report_id","0000000")
-        p2["report_date"] = st.session_state["page1_data"].get("report_date",datetime.date.today().strftime("%m/%d/%Y"))
-
-
-    st.text(f"Work Order: {p2['workorder_name']}")
-    st.text(f"Report ID: {p2['report_id']}")
-    st.text(f"Report Date: {p2['report_date']}")
-    st.text("Analysis Date will be shown per sample.")
-
-    analyte = st.selectbox("Parameter (Analyte)", list(analyte_to_methods.keys()))
+    # pick analyte, method
+    analyte = st.selectbox("Analyte", list(analyte_to_methods.keys()))
     method = st.selectbox("Method", analyte_to_methods[analyte])
-
- 
-    with st.form("analytical_form", clear_on_submit=True):
-        st.write(f"Selected Analyte: {analyte}")
-        st.write(f"Selected Method: {method}")
     
+    with st.form("analysis_form", clear_on_submit=True):
+        # Conditionally display Lab ID dropdown
         sample_lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"].get("samples",[])]
         if sample_lab_ids:
             chosen_lab_id = st.selectbox("Lab ID", sample_lab_ids)
@@ -440,498 +380,234 @@ def render_quality_control_page():
     p3 = st.session_state["page3_data"]
     p3.setdefault("qc_entries", [])
 
-    qc_type = st.selectbox("QC Type", ["MB", "LCS", "MS"])
+    # pick analyte, method
     analyte = st.selectbox("QC Parameter (Analyte)", list(analyte_to_methods.keys()))
     method = st.selectbox("QC Method", analyte_to_methods[analyte])
 
     with st.form("qc_form", clear_on_submit=True):
-        st.write(f"Selected Analyte: {analyte}")
-        st.write(f"Selected Method: {method}")
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
-            q_unit = st.text_input("Unit", "mg/L")
+            q_unit = st.text_input("Unit","mg/L")
         with c2:
-            q_mdl = st.text_input("MDL", "0.0010")
+            q_mdl = st.text_input("MDL","0.0010")
         with c3:
-            q_pql = st.text_input("PQL", "0.005")
-        q_qual = st.text_input("Lab Qualifier", "")
-        blank_conc = st.text_input("Method Blank Conc.", "")
+            q_pql = st.text_input("PQL","0.005")
+        with c4:
+            q_qual = st.text_input("Lab Qualifier","")
+        blank_conc = st.text_input("Method Blank Conc.","")
 
-        if qc_type in ["LCS", "MS"]:
-            spike_conc = st.text_input("Spike Conc.", "")
-            c4, c5 = st.columns(2)
-            with c4:
-                rec_lim = st.text_input("% Recovery Limits", "")
-            with c5:
-                rpd_lim = st.text_input("% RPD Limits", "")
-
-        if qc_type == "LCS":
-            lcs_rec = st.text_input("LCS % Recovery", "")
-            lcsd_rec = st.text_input("LCSD % Recovery", "")
-            lcs_rpd = st.text_input("LCS/LCSD % RPD", "")
-            if st.form_submit_button("Add LCS"):
-                q_batch = generate_qc_batch()
-                mb = generate_method_blank()
-                p3["qc_entries"].append({
-                    "qc_type": qc_type,
-                    "qc_batch": q_batch,
-                    "qc_method": method,
-                    "parameter": analyte,
-                    "unit": q_unit,
-                    "mdl": q_mdl,
-                    "pql": q_pql,
-                    "blank_result": blank_conc,
-                    "spike_conc": spike_conc,
-                    "lcs_rec": lcs_rec,
-                    "lcsd_rec": lcsd_rec,
-                    "lcs_rpd": lcs_rpd,
-                    "rec_limits": rec_lim,
-                    "rpd_limits": rpd_lim,
-                    "lab_qualifier": q_qual,
-                    "method_blank": mb
-                })
-
-        elif qc_type == "MS":
-            samp_conc = st.text_input("Sample Concentration", "")
-            ms_rec = st.text_input("MS % Recovery", "")
-            msd_rec = st.text_input("MSD % Recovery", "")
-            ms_rpd = st.text_input("MS/MSD % RPD", "")
-            if st.form_submit_button("Add MS"):
-                q_batch = generate_qc_batch()
-                mb = generate_method_blank()
-                p3["qc_entries"].append({
-                    "qc_type": qc_type,
-                    "qc_batch": q_batch,
-                    "qc_method": method,
-                    "parameter": analyte,
-                    "unit": q_unit,
-                    "mdl": q_mdl,
-                    "pql": q_pql,
-                    "blank_result": blank_conc,
-                    "spike_conc": spike_conc,
-                    "samp_conc": samp_conc,
-                    "ms_rec": ms_rec,
-                    "msd_rec": msd_rec,
-                    "ms_rpd": ms_rpd,
-                    "rec_limits": rec_lim,
-                    "rpd_limits": rpd_lim,
-                    "lab_qualifier": q_qual,
-                    "method_blank": mb
-                })
-        elif qc_type == "MB":
-            if st.form_submit_button("Add MB"):
-                q_batch = generate_qc_batch()
-                mb = generate_method_blank()
-                p3["qc_entries"].append({
-                    "qc_type": qc_type,
-                    "qc_batch": q_batch,
-                    "qc_method": method,
-                    "parameter": analyte,
-                    "unit": q_unit,
-                    "mdl": q_mdl,
-                    "pql": q_pql,
-                    "blank_result": blank_conc,
-                    "lab_qualifier": q_qual,
-                    "method_blank": mb
-                })
+        if st.form_submit_button("Add QC Entry"):
+            q_batch = generate_qc_batch()
+            mb = generate_method_blank()
+            p3["qc_entries"].append({
+                "qc_batch": q_batch,
+                "qc_method": method,
+                "parameter": analyte,
+                "unit": q_unit,
+                "mdl": q_mdl,
+                "pql": q_pql,
+                "blank_result": blank_conc,
+                "lab_qualifier": q_qual,
+                "method_blank": mb
+            })
 
     st.write("**Current QC Data:**")
     if p3["qc_entries"]:
         for i, qc_ in enumerate(p3["qc_entries"]):
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.write(f"**{i+1}.** QC Type: {qc_['qc_type']}, QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
+                st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
                          f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
-                         f"PQL: {qc_['pql']}, Blank: {qc_.get('blank_result', '')}, Lab Qualifier: {qc_['lab_qualifier']}")
+                         f"PQL: {qc_['pql']}, Blank Result: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}, Method Blank: {qc_['method_blank']}")
             with col2:
                 if st.button(f"❌ Remove", key=f"del_qc_{i}"):
                     del p3["qc_entries"][i]
                     st.rerun()
     else:
-        st.info("No QC entries yet.")
-
+        st.info("No QC data added yet.")
     render_nav_buttons()
 
 
 
 #####################################
-# PDF GENERATION
+# PDF Report Generation
 #####################################
-class MyPDF(FPDF):
-    pass
 
+def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
+                      cover_data, page1_data, page2_data, page3_data):
+    """Generates the full PDF report.
 
-def create_pdf_report(lab_name, lab_address, lab_email, lab_phone, cover_data, page1_data, page2_data, page3_data):
+    Args:
+        lab_name (str): Name of the laboratory.
+        lab_address (str): Address of the laboratory.
+        lab_email (str): Email of the laboratory.
+        lab_phone (str): Phone number of the laboratory.
+        cover_data (dict): Data from the cover page.
+        page1_data (dict): Data from the sample summary page.
+        page2_data (dict): Data from the analytical results page.
+        page3_data (dict): Data from the quality control page.
 
-    pdf = PDF("P", "mm", "A4")
-    pdf.alias_nb_pages()
+    Returns:
+        bytes: The PDF report as a byte stream.
+    """
+    pdf = PDF()  # Use the custom PDF class
     pdf.set_auto_page_break(auto=True, margin=15)
-    p2 = page2_data if page2_data else {"results": []}
-    pdf.set_text_color(0, 0, 0)
-    effective_width = 180
-    total_pages = 4  # Cover, Page 1, Page 2, Page 3
-
-
-    # IMPORTANT: Use a Unicode font for characters like "₃"
     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
     pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
-    pdf.add_font("DejaVu", "I", "DejaVuSans-Italic.ttf", uni=True)
-    pdf.set_font("DejaVu", "", 10)
+    pdf.add_font("DejaVu", "I", "DejaVuSans-Oblique.ttf", uni=True)
+    pdf.set_font("DejaVu", size=12)
 
-
-
-    # ---------------------------
-    # 0. COVER PAGE
-    # ---------------------------
+    # Cover Page
     pdf.add_page()
-
-    # Insert the KELP logo at the top-left
-    try:
-        pdf.image("kelp_logo.png", x=10, y=5, w=50)
-    except Exception as e:
-        pdf.set_font("DejaVu", "B", 12)
-        pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="L")
-    
-    pdf.set_font("DejaVu", "", 10)
-    pdf.set_xy(140,8)
-    pdf.cell(0, 5, "520 Mercury Dr, Sunnyvale, CA 94085", ln=True, align="R")
-    
-    pdf.set_x(140)
-    pdf.cell(0, 5, "Email: kelp@ketoslab.com", ln=True, align="R")
-    
-    pdf.set_x(140)
-    pdf.cell(0, 5, "Phone: (408) 461-8860", ln=True, align="R")
-    
-    # Add more space before the title so it doesn't clash with the header
-    pdf.ln(30)
-
-    # Centered Report Title
     pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, "CERTIFICATE OF ANALYSIS", ln=True, align="C")
-    pdf.ln(4)
-                          
-    left_width = 90
-    right_width = 90
-
-    def table_row(label_text, data_text):
-        pdf.set_font("DejaVu", "B", 10)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(left_width, 6, label_text, border=1, ln=0, align="L", fill=True)
-        pdf.set_font("DejaVu", "", 10)
-        pdf.set_fill_color(255, 255, 255)
-        pdf.cell(right_width, 6, data_text, border=1, ln=1, align="L", fill=True)
-
-    # Fetch first sample's analysis date (or "N/A" if no samples)
-    if p2.get("results"):
-        first_analysis_date = p2["results"][0].get("analysis_date", "N/A")
-    else:
-        first_analysis_date = "N/A"
-    
-    table_row("Work Order:", cover_data.get("work_order", "N/A"))
-    table_row("Project:", cover_data.get("project_name", "N/A"))
-    table_row("Analysis Type:", cover_data.get("analysis_type", "N/A"))
-    table_row("COC #:", cover_data.get("coc_number", "N/A"))
-    table_row("PO #:", cover_data.get("po_number", "N/A"))
-    table_row("Date Samples Received:", cover_data.get("date_samples_received", "N/A"))
-    table_row("Date Reported:", cover_data.get("report_date", datetime.date.today().strftime("%m/%d/%Y")))
-    table_row("Analysis Date:", first_analysis_date)  
-    pdf.ln(4)
-
-
-
-
-    pdf.set_font("DejaVu", "B", 10)
-    pdf.set_fill_color(240, 240, 240)
-    pdf.cell(40, 6, "Client Name:", border=1, align="L", fill=True)
-    pdf.set_font("DejaVu", "", 10)
-    pdf.set_fill_color(255, 255, 255)
-    pdf.cell(effective_width - 40, 6, cover_data["client_name"], border=1, ln=True, align="L", fill=True)
-
-    pdf.set_font("DejaVu", "B", 10)
-    pdf.set_fill_color(240, 240, 240)
-    pdf.cell(40, 6, "Address:", border=1, align="L", fill=True)
-    pdf.set_font("DejaVu", "", 10)
-    pdf.set_fill_color(255, 255, 255)
-    # Print the full combined address (Street, City, State, Zip, Country)
-    pdf.multi_cell(effective_width - 40, 6, cover_data["address_line"], border=1, align="L")
-    pdf.ln(2)
-
-    pdf.set_font("DejaVu", "B", 10)
-    pdf.set_fill_color(240, 240, 240)
-    pdf.cell(40, 6, "Phone:", border=1, align="L", fill=True)
-    pdf.set_font("DejaVu", "", 10)
-    pdf.set_fill_color(255, 255, 255)
-    pdf.cell(effective_width - 40, 6, cover_data["phone"], border=1, ln=True, align="L", fill=True)
-    pdf.ln(4)
-
-    pdf.set_font("DejaVu", "B", 10)
-    pdf.cell(effective_width, 6, "Comments / Case Narrative", ln=True, align="L")
-    pdf.set_font("DejaVu", "", 10)
-    pdf.multi_cell(effective_width, 5, cover_data["comments"], border=1)
-    pdf.ln(4)
-
-    pdf.set_font("DejaVu", "", 10)
-    signature_text = (
-        "All data for associated QC met EPA or laboratory specification(s) except where noted in the case narrative. "
-        "This report supersedes any previous report(s) with this reference. Results apply to the sample(s) as submitted. "
-        "This document shall not be reproduced, except in full."
-    )
-    pdf.multi_cell(effective_width, 5, signature_text, border=0)
-    pdf.ln(2)
-
-    current_y = pdf.get_y()
-    try:
-        pdf.image("lab_managersign.jpg", x=15, y=current_y, w=30)
-        pdf.set_y(current_y + 15)
-    except:
-        pdf.cell(0, 5, "[Signature image not found]", ln=True)
-
-    pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 5, cover_data["signatory_name"], ln=True, align="L")
-    pdf.cell(0, 5, cover_data["signatory_title"], ln=True, align="L")
-    signature_date = datetime.date.today().strftime("%m/%d/%Y")
-    pdf.cell(0, 5, f"Date: {signature_date}", ln=True, align="L")
-
-    # ---------------------------
-    # 1. PAGE 1: SAMPLE SUMMARY
-    # ---------------------------
-    pdf.add_page()
-        # Insert the KELP logo at the top-left
-    try:
-        pdf.image("kelp_logo.png", x=10, y=5, w=30)
-    except Exception as e:
-        pdf.set_font("DejaVu", "B", 12)
-        pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
-    
-    # Move down to leave space after the logo
-    
-    #pdf.set_xy(140, 5)  # Shift up to align with the logo
-    # Add more space before the title so it doesn't clash with the header
-    pdf.ln(20)
-    
+    pdf.cell(0, 10, "Water Quality Analysis Report", 0, 1, "C")
+    pdf.ln(10)
+    pdf.set_font("DejaVu", size=12)
+    pdf.cell(0, 6, f"Report ID: {cover_data['report_id']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Report Date: {cover_data['report_date']}", 0, 1, "L")
+    pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "SAMPLE SUMMARY", ln=True, align="C")
-    pdf.ln(2)
-    
-    pdf.set_font("DejaVu", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page1_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page1_data['report_date']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Client: {cover_data['client_name']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Address: {cover_data['address_line']}", ln=True, align="L")
-    pdf.ln(4)
-    
-    pdf.set_font("DejaVu", "B", 10)
-    pdf.set_fill_color(240, 240, 240)
-    headers = ["Lab ID", "Sample ID", "Matrix", "Date Collected", "Date Received"]
-    widths = [30, 40, 30, 40, 40]  # Sum = 180 (page-wide)
-    for h, w in zip(headers, widths):
-        pdf.cell(w, 7, h, border=1, align="C", fill=True)
-    pdf.ln(7)
-    
-    pdf.set_font("DejaVu", "", 10)
-    for s_ in page1_data["samples"]:
-        row_vals = [s_["lab_id"], s_["sample_id"], s_["matrix"], s_["date_collected"], s_["date_received"]]
-        for val, w in zip(row_vals, widths):
-            pdf.cell(w, 7, str(val), border=1, align="C")
-        pdf.ln(7)
-    
-    # ---------------------------
-    # 2. PAGE 2: ANALYTICAL RESULTS (Separate table for each Lab ID and Sample ID)
-    # ---------------------------
-    pdf.add_page()
-        # Insert the KELP logo at the top-left
-    try:
-        pdf.image("kelp_logo.png", x=10, y=5, w=30)
-    except Exception as e:
-        pdf.set_font("DejaVu", "B", 12)
-        pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
-    
-    # Move down to leave space after the logo
-    
-    #pdf.set_xy(140, 5)  # Shift up to align with the logo
-    # Add more space before the title so it doesn't clash with the header
-    pdf.ln(20)
-    
+    pdf.cell(0, 8, "Client Information", 0, 1, "L")
+    pdf.set_font("DejaVu", size=12)
+    pdf.cell(0, 6, f"Client Name: {cover_data['client_name']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Address: {cover_data['address_line']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Phone: {cover_data['phone']}", 0, 1, "L")
+    pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "ANALYTICAL RESULTS", ln=True, align="C")
-    pdf.ln(2)
-    
-    pdf.set_font("DejaVu", "", 10)
-    pdf.cell(effective_width, 6, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
-    pdf.cell(effective_width, 6, f"Report Date: {page2_data['report_date']}", ln=True, align="L")
-    if p2["results"]:
-        first_analysis_date = p2["results"][0].get("analysis_date", "N/A")  # Use first sample's analysis date
-    else:
-        first_analysis_date = "N/A"
-    
-    pdf.cell(effective_width, 6, f"Analysis Date: {first_analysis_date}", ln=True, align="L")
-
-    pdf.cell(effective_width, 6, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
-    pdf.ln(4)
-    
-    # Group results by a tuple (lab_id, sample_id)
-    results_by_lab = defaultdict(list)
-    for r_ in page2_data["results"]:
-        key = (r_["lab_id"], r_.get("sample_id", ""))
-        results_by_lab[key].append(r_)
-    
-    # Define column widths so that total width = 180 mm
-    widths2 = [40, 35, 20, 20, 20, 30, 15]
-    
-    for (lab_id, sample_id), results_list in results_by_lab.items():
-        header_text = f"Analytical Results for Lab ID: {lab_id} ( Sample ID: {sample_id} )"
-        pdf.set_font("DejaVu", "B", 12)
-        pdf.cell(0, 8, header_text, ln=True, align="L")
-        pdf.ln(2)
-        pdf.set_font("DejaVu", "B", 10)
-        pdf.set_fill_color(230, 230, 230)
-        headers2 = ["Analysis Date", "Parameter", "Analysis", "DF", "MDL", "PQL", "Result", "Unit"]
-        widths2 = [30, 35, 30, 15, 15, 15, 30, 15]  # Adjust widths accordingly
-
-        for h, w in zip(headers2, widths2):
-            pdf.cell(w, 7, h, border=1, align="C", fill=True)
-        pdf.ln(7)
-        pdf.set_font("DejaVu", "", 10)
-        for row in results_list:
-            row_data = [
-                row["analysis_date"],  # Show user-entered analysis date
-                row["parameter"],
-                row["analysis"],
-                row["df"],
-                row["mdl"],
-                row["pql"],
-                row["result"],
-                row["unit"]
-            ]
-            for val, w in zip(row_data, widths2):
-                pdf.cell(w, 7, str(val), border=1, align="C")
-            pdf.ln(7)
-
-        pdf.ln(10)
-    
-    # ---------------------------
-    # 3. PAGE 3: QUALITY CONTROL DATA (Grouped by QC Analysis Method)
-    # ---------------------------
-    pdf.add_page()
-        # Insert the KELP logo at the top-left
-    try:
-        pdf.image("kelp_logo.png", x=10, y=5, w=30)
-    except Exception as e:
-        pdf.set_font("DejaVu", "B", 12)
-        pdf.set_xy(10, 10)
-        pdf.cell(30, 10, "[LOGO]", border=0, ln=0, align="R")
-    
-    # Move down to leave space after the logo
-    
-    pdf.set_xy(140, 5)  # Shift up to align with the logo
-
-    # Add more space before the title so it doesn't clash with the header
-    pdf.ln(20)
-    
+    pdf.cell(0, 8, "Project Information", 0, 1, "L")
+    pdf.set_font("DejaVu", size=12)
+    pdf.cell(0, 6, f"Project Name: {cover_data['project_name']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Work Order #: {cover_data['work_order']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Analysis Type: {cover_data['analysis_type']}", 0, 1, "L")
+    pdf.cell(0, 6, f"COC #: {cover_data['coc_number']}", 0, 1, "L")
+    pdf.cell(0, 6, f"PO #: {cover_data['po_number']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Date Samples Received: {cover_data['date_samples_received']}", 0, 1, "L")
+    pdf.ln(10)
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "QUALITY CONTROL DATA", ln=True, align="C")
-    pdf.ln(2)
-    
-    pdf.set_font("DejaVu", "", 10)
-    pdf.cell(0, 5, f"Work Order: {page2_data['workorder_name']}", ln=True, align="L")
-    pdf.cell(0, 5, f"Report ID: {page2_data['report_id']}", ln=True, align="L")
-    pdf.ln(4)
+    pdf.cell(0, 8, "Comments / Case Narrative", 0, 1, "L")
+    pdf.set_font("DejaVu", size=12)
+    pdf.multi_cell(0, 6, cover_data['comments'], 0, 'L')
+    pdf.ln(10)
+    pdf.set_font("DejaVu", "B", 14)
+    pdf.cell(0, 8, "Laboratory Information", 0, 1, "L")
+    pdf.set_font("DejaVu", size=12)
+    pdf.cell(0, 6, f"Laboratory Name: {lab_name}", 0, 1, "L")
+    pdf.cell(0, 6, f"Address: {lab_address}", 0, 1, "L")
+    pdf.cell(0, 6, f"Email: {lab_email}", 0, 1, "L")
+    pdf.cell(0, 6, f"Phone: {lab_phone}", 0, 1, "L")
+    pdf.ln(10)
+    pdf.cell(0, 6, f"Signatory Name: {cover_data['signatory_name']}", 0, 1, "L")
+    pdf.cell(0, 6, f"Signatory Title: {cover_data['signatory_title']}", 0, 1, "L")
 
-    # Group QC entries by qc_method
-    qc_by_method = defaultdict(list)
+    # Sample Summary Page
+    pdf.add_page()
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, "Sample Summary", 0, 1, "C")
+    pdf.ln(10)
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(30, 8, "Lab ID", 1, 0, "C")
+    pdf.cell(30, 8, "Sample ID", 1, 0, "C")
+    pdf.cell(25, 8, "Matrix", 1, 0, "C")
+    pdf.cell(40, 8, "Date Collected", 1, 0, "C")
+    pdf.cell(40, 8, "Date Received", 1, 1, "C")
+    pdf.set_font("DejaVu", size=12)
+    for sample in page1_data["samples"]:
+        pdf.cell(30, 6, sample["lab_id"], 1, 0, "C")
+        pdf.cell(30, 6, sample["sample_id"], 1, 0, "C")
+        pdf.cell(25, 6, sample["matrix"], 1, 0, "C")
+        pdf.cell(40, 6, sample["date_collected"], 1, 0, "C")
+        pdf.cell(40, 6, sample["date_received"], 1, 1, "C")
+
+    # Analytical Results Page
+    pdf.add_page()
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, "Analytical Results", 0, 1, "C")
+    pdf.ln(10)
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(30, 8, "Lab ID", 1, 0, "C")
+    pdf.cell(30, 8, "Sample ID", 1, 0, "C")
+    pdf.cell(30, 8, "Analysis Date", 1, 0, "C")  # Add Analysis Date
+    pdf.cell(40, 8, "Parameter", 1, 0, "C")
+    pdf.cell(30, 8, "Analysis", 1, 0, "C")
+    pdf.cell(20, 8, "DF", 1, 0, "C")
+    pdf.cell(20, 8, "MDL", 1, 0, "C")
+    pdf.cell(20, 8, "PQL", 1, 0, "C")
+    pdf.cell(20, 8, "Result", 1, 0, "C")
+    pdf.cell(20,8,"Unit",1,1,"C")
+    pdf.set_font("DejaVu", size=12)
+    for result in page2_data["results"]:
+        pdf.cell(30, 6, result["lab_id"], 1, 0, "C")
+        pdf.cell(30, 6, result.get("sample_id",""), 1, 0, "C")
+        pdf.cell(30, 6, result["analysis_date"], 1, 0, "C")  # Display Analysis Date
+        pdf.cell(40, 6, result["parameter"], 1, 0, "C")
+        pdf.cell(30, 6, result["analysis"], 1, 0, "C")
+        pdf.cell(20, 6, result["df"], 1, 0, "C")
+        pdf.cell(20, 6, result["mdl"], 1, 0, "C")
+        pdf.cell(20, 6, result["pql"], 1, 0, "C")
+        pdf.cell(20, 6, result["result"], 1, 0, "C")
+        pdf.cell(20,6,result["unit"],1,1,"C")
+
+    # Quality Control Data Page
+    pdf.add_page()
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, "Quality Control Data", 0, 1, "C")
+    pdf.ln(10)
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(30, 8, "QC Batch", 1, 0, "C")
+    pdf.cell(30, 8, "QC Method", 1, 0, "C")
+    pdf.cell(40, 8, "Parameter", 1, 0, "C")
+    pdf.cell(20, 8, "Unit", 1, 0, "C")
+    pdf.cell(20, 8, "MDL", 1, 0, "C")
+    pdf.cell(20, 8, "PQL", 1, 0, "C")
+    pdf.cell(30, 8, "Blank Result", 1, 0, "C")
+    pdf.cell(30, 8, "Lab Qualifier", 1, 0, "C")
+    pdf.cell(30,8,"Method Blank",1,1,"C")
+    pdf.set_font("DejaVu", size=12)
     for qc_entry in page3_data["qc_entries"]:
-        qc_by_method[qc_entry["qc_method"]].append(qc_entry)
+        pdf.cell(30, 6, qc_entry["qc_batch"], 1, 0, "C")
+        pdf.cell(30, 6, qc_entry["qc_method"], 1, 0, "C")
+        pdf.cell(40, 6, qc_entry["parameter"], 1, 0, "C")
+        pdf.cell(20, 6, qc_entry["unit"], 1, 0, "C")
+        pdf.cell(20, 6, qc_entry["mdl"], 1, 0, "C")
+        pdf.cell(20, 6, qc_entry["pql"], 1, 0, "C")
+        pdf.cell(30, 6, qc_entry["blank_result"], 1, 0, "C")
+        pdf.cell(30, 6, qc_entry["lab_qualifier"], 1, 0, "C")
+        pdf.cell(30,6,qc_entry["method_blank"],1,1,"C")
 
-    for qc_method, qc_entries in qc_by_method.items():
-        pdf.set_font("DejaVu", "B", 12)
-        pdf.cell(0, 8, f"QC Analysis Method: {qc_method}", ln=True, align="L")
-        pdf.ln(2)
+    # Add a page break before the disclaimer if there are more than 3 pages
+    if pdf.page_no() > 3:
+        pdf.add_page()
 
-        # Print Method Blank first for each method
-        pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(0, 7, "Method Blank", ln=True, align="L")
-        pdf.set_font("DejaVu", "", 10)
-        for mb_entry in [qc for qc in qc_entries if qc["qc_type"] == "MB"]:
-            pdf.cell(0, 7, f"QC Batch ID: {mb_entry['qc_batch']}, Method Blank ID: {mb_entry['method_blank']}, Analyte: {mb_entry['parameter']}, Result: {mb_entry.get('blank_result', 'N/A')} {mb_entry['unit']}, Lab Qualifier: {mb_entry['lab_qualifier']}", ln=True, align="L")
-        pdf.ln(2)
+    # Disclaimer Page
+    pdf.set_font("DejaVu", "B", 14)
+    pdf.cell(0, 10, "Disclaimer", 0, 1, "C")
+    pdf.set_font("DejaVu", size=10)
+    disclaimer_text = """
+    The analysis performed at KELP Laboratory were done using accepted laboratory 
+    practices and meet the quality assurance requirements of the NELAC program 
+    unless otherwise noted.  This report is for the exclusive use of the client 
+    and is not intended for use by any other party.  Results relate only to the 
+    samples as received.  KELP Laboratory assumes no responsibility for the 
+    representativeness of the sample, or for the manner in which the sample 
+    was collected, handled, and/or stored. This report shall not be reproduced 
+    except in full, without written approval of KELP Laboratory.
+    """
+    pdf.multi_cell(0, 5, disclaimer_text, 0, 'J')
 
-        # Print LCS Data
-        lcs_entries = [qc for qc in qc_entries if qc["qc_type"] == "LCS"]
-        if lcs_entries:
-            pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 7, "LCS Data", ln=True, align="L")
-            pdf.set_font("DejaVu", "", 10)
-            headers_lcs = ["QC Batch", "Analyte", "Unit", "MDL", "PQL", "Spike Conc.", "LCS % Rec", "LCSD % Rec", "LCS/LCSD % RPD", "% Rec Limits", "% RPD Limits", "Lab Qualifier"]
-            widths_lcs = [25, 25, 10, 15, 15, 20, 20, 20, 25, 25, 25, 20]
-            for h, w in zip(headers_lcs, widths_lcs):
-                pdf.cell(w, 7, h, border=1, align="C", fill=True)
-            pdf.ln(7)
+    # Laboratory Information Footer on all pages.
+    pdf.set_y(-20)
+    pdf.set_font("DejaVu", size=10)  # Smaller font size for footer
+    pdf.cell(0, 5, f"{lab_name} - {lab_address} - {lab_email} - {lab_phone}", 0, 0, "C")
 
-            for lcs_entry in lcs_entries:
-                row_lcs = [
-                    lcs_entry["qc_batch"],
-                    lcs_entry["parameter"],
-                    lcs_entry["unit"],
-                    lcs_entry["mdl"],
-                    lcs_entry["pql"],
-                    lcs_entry["spike_conc"],
-                    lcs_entry["lcs_rec"],
-                    lcs_entry["lcsd_rec"],
-                    lcs_entry["lcs_rpd"],
-                    lcs_entry["rec_limits"],
-                    lcs_entry["rpd_limits"],
-                    lcs_entry["lab_qualifier"]
-                ]
-                for val, w in zip(row_lcs, widths_lcs):
-                    pdf.cell(w, 7, str(val), border=1, align="C")
-                pdf.ln(7)
-            pdf.ln(5)
-
-        # Print MS Data
-        ms_entries = [qc for qc in qc_entries if qc["qc_type"] == "MS"]
-        if ms_entries:
-            pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 7, "MS/MSD Data", ln=True, align="L")
-            pdf.set_font("DejaVu", "", 10)
-            headers_ms = ["QC Batch", "Analyte", "Unit", "MDL", "PQL", "Sample Conc.", "Spike Conc.", "MS % Rec", "MSD % Rec", "MS/MSD % RPD", "% Rec Limits", "% RPD Limits", "Lab Qualifier"]
-            widths_ms = [25, 25, 10, 15, 15, 25, 20, 20, 20, 25, 25, 25, 20]
-            for h, w in zip(headers_ms, widths_ms):
-                pdf.cell(w, 7, h, border=1, align="C", fill=True)
-            pdf.ln(7)
-            for ms_entry in ms_entries:
-                row_ms = [
-                    ms_entry["qc_batch"],
-                    ms_entry["parameter"],
-                    ms_entry["unit"],
-                    ms_entry["mdl"],
-                    ms_entry["pql"],
-                    ms_entry["samp_conc"],
-                    ms_entry["spike_conc"],
-                    ms_entry["ms_rec"],
-                    ms_entry["msd_rec"],
-                    ms_entry["ms_rpd"],
-                    ms_entry["rec_limits"],
-                    ms_entry["rpd_limits"],
-                    ms_entry["lab_qualifier"]
-                ]
-                for val, w in zip(row_ms, widths_ms):
-                    pdf.cell(w, 7, str(val), border=1, align="C")
-                pdf.ln(7)
-            pdf.ln(10)
-    # Convert to bytes
+    # Create the PDF object
     buffer = io.BytesIO()
     pdf.output(buffer)
     buffer.seek(0)
-    return buffer.getvalue()
+    return buffer.read()
 
 
 
-#####################################
 # MAIN APP
-#####################################
 
 def main():
     st.title("Water Quality COA")
@@ -942,6 +618,12 @@ def main():
     if st.button("🔄 Refresh / Start Over"):
         reset_app()
     page_container = st.container()
+
+    # Initialize session state variables
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = 0
+    if "page3_data" not in st.session_state:
+        st.session_state["page3_data"] = {} # Initialize page 3 data
 
     # Decide page
 
@@ -973,7 +655,7 @@ def main():
             st.download_button(
                 label="Download PDF Report",
                 data=pdf_bytes,
-                file_name="wq_coa_report.pdf",
+                file_name=f"Water_Quality_Report_{datetime.date.today()}.pdf",
                 mime="application/pdf",
             )
 
@@ -981,4 +663,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
