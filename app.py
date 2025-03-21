@@ -76,7 +76,7 @@ def address_autofill_field(label, default=""):
             "q": query,
             "format": "json",
             "addressdetails": 1,
-            "limit": 3
+            "limit": 3,
             "countrycodes": "us" 
         }
         headers = {"User-Agent": "YourAppName/1.0 (your.email@example.com)"}
