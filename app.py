@@ -89,32 +89,57 @@ def address_autofill_field(label, default=""):
         return selected_street, address_details
     return query, None
 
+def split_text_to_width(pdf, text, max_width):
+    """Splits the input text into a list of lines so that each line's width is <= max_width."""
+    if not text:
+        return [""]
+    words = text.split(" ")
+    lines = []
+    current_line = ""
+    for word in words:
+        if current_line == "":
+            test_line = word
+        else:
+            test_line = current_line + " " + word
+        if pdf.get_string_width(test_line) <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+    return lines
+
 def draw_dynamic_row(pdf, data, widths, line_height=6, border=1, align='C', fill=False):
     """
-    Splits each cell's text to its available width, computes the maximum number of lines,
-    and then draws the row using that row height.
-    Also checks for a page break.
+    For each cell, splits text to fit within the given width and calculates the maximum number of lines.
+    Then, it sets the row height accordingly and draws each cell with multi_cell.
+    If the row would exceed the page bottom, a page break is added.
     """
     max_lines = 0
-    # Use pdf.split_text(text, width) to compute wrapped lines per cell.
     for text, w in zip(data, widths):
-        lines = pdf.split_text(text, w)
+        lines = split_text_to_width(pdf, text, w)
         n = len(lines)
         if n > max_lines:
             max_lines = n
     row_height = line_height * max_lines
-    # Check for page break:
     if pdf.get_y() + row_height > pdf.h - pdf.b_margin:
         pdf.add_page()
     x_start = pdf.get_x()
     y_start = pdf.get_y()
     for text, w in zip(data, widths):
         pdf.set_xy(x_start, y_start)
-        # Split text into lines that fit in the cell
-        lines = pdf.split_text(text, w)
+        lines = split_text_to_width(pdf, text, w)
         pdf.multi_cell(w, line_height, "\n".join(lines), border=border, align=align, fill=fill)
         x_start += w
     pdf.set_xy(pdf.l_margin, y_start + row_height)
+
+def draw_single_line_row(pdf, data, widths, height, border=1, align='C', fill=False):
+    """Draws a single-line row using pdf.cell() for each cell with fixed height."""
+    for text, w in zip(data, widths):
+        pdf.cell(w, height, text, border=border, align=align, fill=fill)
+    pdf.ln(height)
 
 ########################################
 # Sample Analyte-to-Method Mapping
@@ -457,7 +482,7 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
         pdf.image("kelp_logo.png", x=10, y=5, w=50)
     except:
         pdf.set_xy(10,10)
-        pdf.set_font("DejaVu","B",12)
+        pdf.set_font("DejaVu", "B", 12)
         pdf.cell(30,10,"[LOGO]", 0, ln=0, align="L")
     pdf.ln(30)
     pdf.set_font("DejaVu", "B", 16)
@@ -550,18 +575,15 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.cell(0,5, f"Report Date: {page2_data.get('report_date','')}", ln=True, align="L")
     pdf.ln(5)
 
-    # Define fixed column widths for each QC table type:
+    # Fixed column widths and fixed row height (7 mm) for table cells, font size 11.
+    row_height = 7
     # Method Blank (MB) Table: [Analyte, MDL, PQL, Method Blank Conc., Lab Qualifier]
     mb_widths = [40, 25, 25, 50, 40]
     # LCS Table: [Analyte, MDL, PQL, Spike Conc., LCS % Rec., LCSD % Rec., LCS/LCSD % RPD, % Rec. Limits, % RPD Limits, Lab Qualifier]
     lcs_widths = [30, 17, 17, 17, 17, 17, 16, 16, 16, 16]
     # MS Table: [Analyte, MDL, PQL, Samp Conc., Spike Conc., MS % Rec., MSD % Rec., MS/MSD % RPD, % Rec. Limits, % RPD Limits, Lab Qualifier]
     ms_widths = [30, 15, 14, 15, 14, 15, 14, 15, 14, 14, 14]
-    
-    # Set row height (fixed) and font to 11 for table cells.
-    row_height = 7
 
-    # For each QC entry, draw header block and then one table header and one data row using dynamic wrapping.
     try:
         pdf.set_cell_padding(0)
     except AttributeError:
@@ -569,7 +591,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
 
     for qc in page3_data.get("qc_entries", []):
         pdf.set_font("DejaVu", "B", 12)
-        # Use left-aligned multi_cell with effective width.
         pdf.multi_cell(effective_width, 5, f"QC Analysis (Method): {qc.get('qc_method', qc.get('method',''))} | Parameter: {qc.get('qc_parameter', qc.get('parameter',''))}", border=0, align="L")
         pdf.multi_cell(effective_width, 5, f"QC Batch: {qc['qc_batch']}", border=0, align="L")
         pdf.multi_cell(effective_width, 5, f"Unit: {qc['unit']}", border=0, align="L")
@@ -579,39 +600,39 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
             pdf.multi_cell(effective_width, 5, "Method Blank Data", border=0, align="L")
             pdf.ln(2)
             headers_mb = ["Analyte", "MDL", "PQL", "Method Blank Conc.", "Lab Qualifier"]
-            draw_dynamic_row(pdf, headers_mb, mb_widths, line_height=6, border=1, align='C', fill=True)
+            draw_single_line_row(pdf, headers_mb, mb_widths, row_height, border=1, align='C', fill=True)
             pdf.set_font("DejaVu", "", 11)
             row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc["method_blank"], qc["lab_qualifier"]]
-            draw_dynamic_row(pdf, row_data, mb_widths, line_height=6, border=1, align='C', fill=False)
+            draw_single_line_row(pdf, row_data, mb_widths, row_height, border=1, align='C', fill=False)
             pdf.ln(5)
         elif qc["qc_type"] == "LCS":
             pdf.set_font("DejaVu", "B", 11)
             pdf.multi_cell(effective_width, 5, "LCS Data", border=0, align="L")
             pdf.ln(2)
             headers_lcs = ["Analyte", "MDL", "PQL", "Spike Conc.", "LCS % Rec.", "LCSD % Rec.", "LCS/LCSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
-            draw_dynamic_row(pdf, headers_lcs, lcs_widths, line_height=6, border=1, align='C', fill=True)
+            draw_single_line_row(pdf, headers_lcs, lcs_widths, row_height, border=1, align='C', fill=True)
             pdf.set_font("DejaVu", "", 11)
             row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc["spike_conc"], qc["lcs_recovery"],
                         qc["lcsd_recovery"], qc["rpd_lcs"], qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
-            draw_dynamic_row(pdf, row_data, lcs_widths, line_height=6, border=1, align='C', fill=False)
+            draw_single_line_row(pdf, row_data, lcs_widths, row_height, border=1, align='C', fill=False)
             pdf.ln(5)
         elif qc["qc_type"] == "MS":
             pdf.set_font("DejaVu", "B", 11)
             pdf.multi_cell(effective_width, 5, "MS Data", border=0, align="L")
             pdf.ln(2)
             headers_ms = ["Analyte", "MDL", "PQL", "Samp Conc.", "Spike Conc.", "MS % Rec.", "MSD % Rec.", "MS/MSD % RPD", "% Rec. Limits", "% RPD Limits", "Lab Qualifier"]
-            draw_dynamic_row(pdf, headers_ms, ms_widths, line_height=6, border=1, align='C', fill=True)
+            draw_single_line_row(pdf, headers_ms, ms_widths, row_height, border=1, align='C', fill=True)
             pdf.set_font("DejaVu", "", 11)
             row_data = [qc["parameter"], qc["mdl"], qc["pql"], qc.get("sample_conc", ""), qc["spike_conc"],
                         qc.get("ms_recovery", ""), qc.get("msd_recovery", ""), qc.get("rpd_ms", ""),
                         qc["recovery_limits"], qc["rpd_limits"], qc["lab_qualifier"]]
-            draw_dynamic_row(pdf, row_data, ms_widths, line_height=6, border=1, align='C', fill=False)
+            draw_single_line_row(pdf, row_data, ms_widths, row_height, border=1, align='C', fill=False)
             pdf.ln(5)
         pdf.ln(5)
 
     pdf.ln(8)
     pdf.set_font("DejaVu", "I", 8)
-    pdf.multi_cell(effective_width, 5, 
+    pdf.multi_cell(effective_width, 5,
                    "This report shall not be reproduced, except in full, without the written consent of KELP Laboratory. "
                    "Test results reported relate only to the samples as received by the laboratory.")
     pdf.set_y(-15)
@@ -622,29 +643,6 @@ def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
     pdf.output(buffer)
     buffer.seek(0)
     return buffer.read()
-
-# New helper: dynamic row drawing with wrapping and dynamic height calculation.
-def draw_dynamic_row(pdf, data, widths, line_height=6, border=1, align='C', fill=False):
-    max_lines = 0
-    # Compute maximum number of lines for any cell
-    for text, w in zip(data, widths):
-        # pdf.split_text() splits text into a list of lines that fit in w
-        lines = pdf.split_text(text, w)
-        n = len(lines)
-        if n > max_lines:
-            max_lines = n
-    row_height = line_height * max_lines
-    # Check if row fits on current page
-    if pdf.get_y() + row_height > pdf.h - pdf.b_margin:
-        pdf.add_page()
-    x_start = pdf.get_x()
-    y_start = pdf.get_y()
-    for text, w in zip(data, widths):
-        pdf.set_xy(x_start, y_start)
-        lines = pdf.split_text(text, w)
-        pdf.multi_cell(w, line_height, "\n".join(lines), border=border, align=align, fill=fill)
-        x_start += w
-    pdf.set_xy(pdf.l_margin, y_start + row_height)
 
 ########################################
 # MAIN APP
