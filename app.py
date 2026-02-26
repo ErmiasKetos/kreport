@@ -436,7 +436,7 @@ class KelpCOA:
                 "Unless otherwise indicated, no results have been method blank or field blank corrected.", bs))
         s.append(Paragraph(
             "Reported results relate only to the items/samples as received and tested by the laboratory.", bs))
-        s.append(Paragraph(DISCLAIMER, ParagraphStyle('disc', parent=ST['ital'], spaceBefore=10)))
+      
         return s
 
     # ═══════════════════════════════════════════════════════════════════════════
