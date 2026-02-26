@@ -1,666 +1,1505 @@
+"""
+KELP COA Generator — Streamlit Cloud Application
+==================================================
+KETOS Environmental Lab Platform (KELP)
+Certificate of Analysis (COA) PDF Generator
+
+Replicates the exact 12-page COA format per TNI/ISO 17025/ELAP standards:
+  Page 1:  Cover Letter (signature, ELAP cert)
+  Page 2:  Case Narrative
+  Page 3:  Sample Result Summary
+  Pages 4-6: Sample Results (detail per sample/prep method)
+  Page 7:  MB Summary Report
+  Page 8:  LCS/LCSD Summary Report
+  Page 9:  Laboratory Qualifiers and Definitions
+  Page 10: Sample Receipt Checklist
+  Page 11: Login Summary Report
+  Page 12: Chain of Custody (uploaded image)
+
+Branding: KETOS Inc. — #1F4E79 dark blue, #4AAEC7 teal accent, Calibri font
+"""
+
 import streamlit as st
-from fpdf import FPDF
-import datetime
 import io
-import random
-import string
-import requests
-from collections import defaultdict
+import json
+import copy
+from datetime import datetime, date, time
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor, black, white, Color
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+    Image, PageBreak, KeepTogether, Frame, PageTemplate
+)
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from PIL import Image as PILImage
+import os
+import base64
 
-def reset_app():
-    """Clears all session state variables and reloads the app."""
-    st.session_state.clear()  # This removes all session state variables
-    st.rerun()  # Use this instead of st.experimental_rerun()
+# ============================================================================
+# BRANDING & CONSTANTS
+# ============================================================================
+KETOS_DARK_BLUE = HexColor("#1F4E79")
+KETOS_TEAL = HexColor("#4AAEC7")
+KETOS_LIGHT_BLUE = HexColor("#D6E4F0")
+KETOS_LIGHT_GRAY = HexColor("#D6DCE4")
+KETOS_MED_GRAY = HexColor("#F2F2F2")
+KETOS_WHITE = HexColor("#FFFFFF")
+KETOS_BLACK = HexColor("#000000")
+BORDER_BLUE = HexColor("#5B9BD5")
 
+PAGE_W, PAGE_H = letter  # 612 x 792 pts
+MARGIN = 0.75 * inch
+CONTENT_W = PAGE_W - 2 * MARGIN
 
-#####################################
-# PDF Class for Page Numbers
-#####################################
-class PDF(FPDF):
-    def footer(self):
-        self.set_y(-15)
-        # If you have DejaVu fonts, use them:
-        self.set_font("DejaVu", "I", 8)
-        self.cell(0, 10, f"Page {self.page_no()} of {{nb}}", 0, 0, "C")
+LAB_NAME = "KETOS Environmental Lab Services"
+LAB_ENTITY = "KETOS INC."
+LAB_ADDRESS_LINES = [
+    "KETOS INC.",
+    "1063 S De Anza Blvd",
+    "San Jose, California 95129",
+]
+LAB_PHONE = "Tel: 408-603-5552"
+LAB_EMAIL = "Email: kelp@ketos.com"
 
-#####################################
-# Helper Functions
-#####################################
-def generate_id(prefix="LS", length=6):
-    return prefix + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=length))
+# Default qualifiers list per the sample COA
+QUALIFIER_DEFINITIONS = [
+    ("B", "Indicates when the analyte is found in the associated method or preparation blank"),
+    ("D", "Surrogate is not recoverable due to the necessary dilution of the sample"),
+    ("E", "Indicates the reportable value is outside of the calibration range of the instrument but within the linear range of the instrument (unless otherwise noted). Values reported with an E qualifier should be considered as estimated."),
+    ("H", "Indicates that the recommended holding time for the analyte or compound has been exceeded"),
+    ("J", "Indicates a value between the method MDL and PQL and that the reported concentration should be considered as estimated rather than the quantitative"),
+    ("NA", "Not Analyzed"),
+    ("N/A", "Not Applicable"),
+    ("ND", "Not Detected at a concentration greater than the PQL/RL or, if reported to the MDL, at greater than the MDL."),
+    ("NR", "Not recoverable — a matrix spike concentration is not recoverable due to a concentration within the original sample that is greater than four times the spike concentration added"),
+    ("R", "The % RPD between a duplicate set of samples is outside of the absolute values established by laboratory control charts"),
+    ("S", "Spike recovery is outside of established method and/or laboratory control limits. Further explanation of the use of this qualifier should be included within a case narrative"),
+    ("X", "Used to indicate that a value based on pattern identification is within the pattern range but not typical of the pattern found in standards. Further explanation may or may not be provided within the sample footnote and/or the case narrative."),
+]
 
-def generate_qc_batch():
-    letters = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=3))
-    digits = ''.join(random.choices("0123456789", k=3))
-    return letters + digits
-
-def generate_method_blank():
-    letters = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=2))
-    digits = ''.join(random.choices("0123456789", k=5))
-    return letters + digits
-
-def generate_coc_number():
-    return "COC-" + ''.join(random.choices("0123456789", k=8))
-
-
-
-#####################################
-# Streamlit UI Functions
-#####################################
-
-PAGES = ["Cover Page", "Sample Summary", "Analytical Results", "Quality Control"]
-#Predefined lists for selecting parameters
-analyte_to_methods = {
-    "Total Dissolved Solids": ["EPA 160.1", "SM 2540C"],
-    "Total Suspended Solids": ["EPA 160.2", "SM 2540D"],
-    "pH": ["EPA 150.1", "SM 4500-H+ B"],
-    "Conductivity": ["EPA 120.1", "SM 2510B"],
-    "Turbidity": ["EPA 180.1", "SM 2130B"],
-    "Chlorine": ["EPA 330.5", "SM 4500-Cl G"],
-    "Dissolved Oxygen": ["EPA 360.1", "SM 4500-O G"],
-    "BOD": ["EPA 405.1", "SM 5210B"],
-    "COD": ["EPA 410.4", "SM 5220D"],
-    "Oil and Grease": ["EPA 1664", "SM 5520B"],
-    "Total Coliform": ["SM 9221B", "SM 9221F"],
-    "Fecal Coliform": ["SM 9222D", "SM 9222G"],
-    "Enterococcus": ["EPA 1600", "SM 9230B"],
-    "Nitrate": ["EPA 300.0", "SM 4500-NO3- E"],
-    "Nitrite": ["EPA 354.1", "SM 4500-NO2- B"],
-    "Ammonia": ["EPA 350.1", "SM 4500-NH3 G"],
-    "TKN": ["EPA 351.2", "SM 4500-Norg D"],
-    "Phosphorus": ["EPA 365.1", "SM 4500-P F"],
-    "Sulfate": ["EPA 300.0", "SM 4500-SO4 2- E"],
-    "Chloride": ["EPA 300.0", "SM 4500-Cl- E"],
-    "Fluoride": ["EPA 340.2", "SM 4500-F- C"],
-    "Bromide": ["EPA 300.0", "SM 4500-Br- B"],
-    "Calcium": ["EPA 200.7", "SM 3120B"],
-    "Magnesium": ["EPA 200.7", "SM 3120B"],
-    "Sodium": ["EPA 200.7", "SM 3120B"],
-    "Potassium": ["EPA 200.7", "SM 3120B"],
-    "Iron": ["EPA 200.7", "SM 3120B"],
-    "Manganese": ["EPA 200.7", "SM 3120B"],
-    "Aluminum": ["EPA 200.7", "SM 3120B"],
-    "Arsenic": ["EPA 200.8", "SM 3113B"],
-    "Cadmium": ["EPA 200.8", "SM 3113B"],
-    "Chromium": ["EPA 200.8", "SM 3113B"],
-    "Copper": ["EPA 200.8", "SM 3113B"],
-    "Lead": ["EPA 200.8", "SM 3113B"],
-    "Mercury": ["EPA 245.1", "SM 3112B"],
-    "Nickel": ["EPA 200.8", "SM 3113B"],
-    "Selenium": ["EPA 200.8", "SM 3113B"],
-    "Silver": ["EPA 200.8", "SM 3113B"],
-    "Zinc": ["EPA 200.7", "SM 3120B"],
-    "Benzene": ["EPA 624", "SM 6200B"],
-    "Toluene": ["EPA 624", "SM 6200B"],
-    "Ethylbenzene": ["EPA 624", "SM 6200B"],
-    "Xylene": ["EPA 624", "SM 6200B"],
-    "MTBE": ["EPA 624", "SM 6200B"],
-    "Naphthalene": ["EPA 625", "SM 6250B"],
-    "Phenanthrene": ["EPA 625", "SM 6250B"],
-    "Anthracene": ["EPA 625", "SM 6250B"],
-    "Pyrene": ["EPA 625", "SM 6250B"],
-    "Benzo(a)anthracene": ["EPA 625", "SM 6250B"],
-    "Chrysene": ["EPA 625", "SM 6250B"],
-    "Benzo(b)fluoranthene": ["EPA 625", "SM 6250B"],
-    "Benzo(k)fluoranthene": ["EPA 625", "SM 6250B"],
-    "Benzo(a)pyrene": ["EPA 625", "SM 6250B"],
-    "Indeno(1,2,3-cd)pyrene": ["EPA 625", "SM 6250B"],
-    "Dibenz(a,h)anthracene": ["EPA 625", "SM 6250B"],
-    "Benzo(g,h,i)perylene": ["EPA 625", "SM 6250B"],
-    "PCB": ["EPA 608", "SM 608"],
-    "Pesticides": ["EPA 608", "SM 608"],
-    "Herbicides": ["EPA 632", "SM 632"],
-    "VOCs": ["EPA 624", "SM 6200B"],
-    "SVOCs": ["EPA 625", "SM 6250B"],
-    "Metals": ["EPA 200.8", "SM 3113B"],
-    "Cyanide": ["EPA 335.4", "SM 4500-CN- E"],
-    "Sulfide": ["EPA 376.1", "SM 4500-S2- D"],
-    "Asbestos": ["EPA 100.2", "SM 2550"],
-    "Color": ["SM 2120B"],
-    "Odor": ["SM 2150B"],
-    "Taste": ["SM 2160"],
-    "Surfactants": ["EPA 420.1", "SM 5540C"],
-    "Phenols": ["EPA 420.2", "SM 5530C"],
-    "Radioactivity": ["EPA 900.0", "SM 7110C"],
-    "TOC": ["SM 5310B"],
-    "DOC": ["SM 5310B"],
-    "Purgeable Halocarbons": ["EPA 601", "SM 6200B"],
-    "Extractable Organohalides": ["EPA 625", "SM 6250B"],
-    "Aldehydes": ["EPA 556", "SM 6200B"],
-    "Ketones": ["EPA 624", "SM 6200B"],
-    "Alcohols": ["EPA 603", "SM 6200B"],
-    "Organic Acids": ["EPA 625", "SM 6250B"],
-    "PCBs": ["EPA 608", "SM 608"],
-    "Pesticides": ["EPA 608", "SM 608"],
-    "Herbicides": ["EPA 632", "SM 632"],
-    "Dioxins and Furans": ["EPA 1613", "SM 1613"],
-    "PAHs": ["EPA 625", "SM 6250B"],
-    "BTEX": ["EPA 624", "SM 6200B"],
-    "TPH": ["EPA 8015", "SM 8015"],
-    "Oil and Grease": ["EPA 1664", "SM 5520B"],
-    "Fecal Coliform":  ["SM 9222D", "SM 9222G"],
-    "Total Coliform": ["SM 9221B", "SM 9221F"],
-    "E. coli": ["SM 9223B"],
-    "Enterococcus": ["EPA 1600", "SM 9230B"],
-    "Radioactivity": ["EPA 900.0", "SM 7110C"],
-    "Radon": ["EPA 913", "SM 7500-Rn"],
-    "Strontium-90": ["EPA 905", "SM 7500-Sr"],
-    "Tritium": ["EPA 906", "SM 4500-H3"],
-    "Gross Alpha/Beta": ["EPA 900", "SM 7110B"],
-    "Radium-226": ["EPA 903", "SM 7500-Ra"],
-    "Radium-228": ["EPA 904", "SM 7500-Ra"],
-    "Uranium": ["EPA 200.8", "SM 3125"],
-    "Plutonium": ["EPA 909", "SM 7500-Pu"],
-    "Americium": ["EPA 910", "SM 7500-Am"],
-}
+DEFINITIONS = [
+    ("Accuracy/Bias (% Recovery)", "The closeness of agreement between an observed value and an accepted reference value."),
+    ("Blank (Method/Preparation Blank)", "MB/PB — An analyte-free matrix to which all reagents are added in the same volumes/proportions as used in sample processing. The method blank is used to document contamination resulting from the analytical process."),
+    ("Duplicate", "A field sample and/or laboratory QC sample prepared in duplicate following all of the same processes and procedures used on the original sample (sample duplicate, LCSD, MSD)"),
+    ("Laboratory Control Sample (LCS ad LCSD)", "A known matrix spiked with compounds representative of the target analyte(s). This is used to document laboratory performance."),
+    ("Matrix", "The component or substrate that contains the analyte of interest (e.g., — groundwater, sediment, soil, waste water, etc)"),
+    ("Matrix Spike (MS/MSD)", "Client sample spiked with identical concentrations of target analyte(s). The spiking occurs prior to the sample preparation and analysis. They are used to document the precision and bias of a method in a given sample matrix."),
+    ("Method Detection Limit (MDL)", "The minimum concentration of a substance that can be measured and reported with a 99% confidence that the analyte concentration is greater than zero"),
+    ("Practical Quantitation Limit/Reporting Limit/Limit of Quantitation (PQL/RL/LOQ)", "A laboratory determined value at 2 to 5 times above the MDL that can be reproduced in a manner that results in a 99% confidence level that the result is both accurate and precise. PQLs/RLs/LOQs reflect all preparation factors and/or dilution factors that have been applied to the sample during the preparation and/or analytical processes."),
+    ("Precision (%RPD)", "The agreement among a set of replicate/duplicate measurements without regard to known value of the replicates"),
+    ("Units", "The unit of measure used to express the reported result — mg/L and mg/Kg (equivalent to PPM — parts per million in liquid and solid), ug/L and ug/Kg (equivalent to PPB — parts per billion in liquid and solid), ug/m3, mg/m3, ppbv and ppmv (all units of measure for reporting concentrations in air), % (equivalent to 10000 ppm or 1,000,000 ppb), ug/Wipe (concentration found on the surface of a single Wipe usually taken over a 100cm2 surface)"),
+]
 
 
-def get_date_input(label, default_value=None):
-    """
-    Displays a date input field in Streamlit.
+# ============================================================================
+# SESSION STATE DEFAULTS
+# ============================================================================
+def init_session():
+    """Initialize all session state variables with sensible defaults."""
+    defaults = {
+        # Lab / Report Info
+        "elap_number": "XXXX",
+        "lab_phone_display": "(408) 603-5552",
+        "report_date": date.today(),
+        "work_order": "",
+        "total_page_count": 12,
 
-    Args:
-        label (str): The label for the date input field.
-        default_value (str, optional): The default date value in "MM/DD/YYYY" format.
-            If None, defaults to today's date.
+        # Client Info
+        "client_contact": "",
+        "client_company": "",
+        "client_address": "",
+        "client_city_state_zip": "",
+        "client_phone": "",
+        "client_email": "",
+        "project_name": "",
+        "project_number": "",
+        "client_id": "",
 
-    Returns:
-        datetime.date: The selected date as a datetime.date object.  Returns None
-                       if the user doesn't select a date.
-    """
-    if default_value:
-        try:
-            default_date = datetime.datetime.strptime(default_value, "%m/%d/%Y").date()
-        except ValueError:
-            st.error(f"Invalid default date format. Please use MM/DD/YYYY.  Using today's date.")
-            default_date = datetime.date.today()
-    else:
-        default_date = datetime.date.today()
+        # Cover Letter
+        "num_samples_text": "1",
+        "date_received_text": "",
+        "approver_name": "Ermias L",
+        "approver_title": "Lab Director",
+        "approval_date": date.today(),
 
-    selected_date = st.date_input(label, default_date)
-    return selected_date.strftime("%m/%d/%Y") #return as string in consistent format
+        # Case Narrative
+        "case_narrative_custom": "",
+        "qc_met": True,
+        "method_blank_corrected": False,
 
+        # Samples  (list of dicts)
+        "samples": [],
 
-def render_navbar():
-    """Renders the navigation bar at the top of the app."""
-    cols = st.columns(len(PAGES))
-    for i, page_name in enumerate(PAGES):
-        if cols[i].button(page_name):
-            st.session_state.current_page = i
-            st.rerun()  # Use st.rerun() for consistency
+        # QC — Method Blank batches
+        "mb_batches": [],
 
-def render_nav_buttons():
-    """Renders the navigation buttons at the bottom of each page."""
-    cols = st.columns(3)  # Create three columns for layout
-    if st.session_state.current_page > 0:
-        if cols[0].button("Previous"):
-            st.session_state.current_page -= 1
-            st.rerun()
-    cols[1].empty()  # Leave the middle column empty for spacing
-    if st.session_state.current_page < len(PAGES) - 1:
-        if cols[2].button("Next"):
-            st.session_state.current_page += 1
-            st.rerun()
+        # QC — LCS/LCSD batches
+        "lcs_batches": [],
 
-def render_cover_page():
-    """Renders the cover page form."""
-    st.header("Cover Page Information")
-    if "cover_data" not in st.session_state:
-        st.session_state["cover_data"] = {
-            "report_id": generate_id(),
-            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
-            "client_name": "",
-            "address_line": "",
-            "phone": "",
-            "project_name": "",
-            "work_order": "",
-            "analysis_type": "",
-            "coc_number": "",
-            "po_number": "",
-            "date_samples_received": "",
-            "comments": "",
-            "signatory_name": "",
-            "signatory_title": "",
-        }
+        # Sample Receipt Checklist
+        "receipt": {
+            "date_time_received": "",
+            "received_by": "",
+            "physically_logged_by": "",
+            "checklist_completed_by": "",
+            "carrier_name": "Client Drop Off",
+            "coc_present": "Yes",
+            "coc_signed": "Yes",
+            "coc_agrees": "Yes",
+            "custody_seals_bottles": "Not Present",
+            "custody_seals_cooler": "Not Present",
+            "cooler_good": "Yes",
+            "proper_container": "Yes",
+            "containers_intact": "Yes",
+            "sufficient_volume": "Yes",
+            "within_holding_time": "Yes",
+            "temp_compliance": "No",
+            "temperature": "",
+            "voa_headspace": "No VOA vials submitted",
+            "ph_acceptable": "No",
+            "ph_checked_by": "",
+            "ph_adjusted_by": "",
+            "receipt_comments": "",
+        },
 
-    cover_data = st.session_state["cover_data"]
+        # Login Summary
+        "login_summary": {
+            "client_id_code": "",
+            "qc_level": "II",
+            "tat_requested": "Standard",
+            "date_received_login": "",
+            "time_received_login": "",
+            "report_due_date": "",
+            "login_comments": "",
+        },
 
-    with st.form("cover_form"):
-        cover_data["client_name"] = st.text_input("Client Name", cover_data["client_name"])
-        cover_data["address_line"] = st.text_input("Address", cover_data["address_line"])
-        cover_data["phone"] = st.text_input("Phone", cover_data["phone"])
-        cover_data["project_name"] = st.text_input("Project Name", cover_data["project_name"])
-        cover_data["work_order"] = st.text_input("Work Order #", cover_data["work_order"])
-        cover_data["analysis_type"] = st.text_input("Analysis Type", cover_data["analysis_type"])
-        cover_data["coc_number"] = st.text_input("COC #", cover_data["coc_number"])
-        cover_data["po_number"] = st.text_input("PO #", cover_data["po_number"])
-        cover_data["date_samples_received"] = get_date_input("Date Samples Received", cover_data["date_samples_received"])
-        cover_data["comments"] = st.text_area("Comments / Case Narrative", cover_data["comments"], height=100)
-        cover_data["signatory_name"] = st.text_input("Signatory Name", cover_data["signatory_name"])
-        cover_data["signatory_title"] = st.text_input("Signatory Title", cover_data["signatory_title"])
-        # Report ID and Date are set automatically and not editable
-        st.text_input("Report ID", value=cover_data["report_id"], disabled=True)
-        st.text_input("Report Date", value=cover_data["report_date"], disabled=True)
-
-        submitted = st.form_submit_button("Save Cover Page Data")
-        if submitted:
-            st.success("Cover Page data saved!")
-
-    render_nav_buttons()
+        # Uploaded images
+        "logo_bytes": None,
+        "signature_bytes": None,
+        "coc_image_bytes": None,
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
 
+# ============================================================================
+# PDF BUILDER  (ReportLab)
+# ============================================================================
+class KelpCOA:
+    """Builds the multi-page COA PDF using ReportLab low-level canvas."""
 
-def render_sample_summary_page():
-    """Renders the sample summary page."""
-    st.header("Sample Summary")
-    if "page1_data" not in st.session_state:
-        st.session_state["page1_data"] = {
-            "report_id": generate_id(),
-            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
-            "samples": [],
-        }
-    page1_data = st.session_state["page1_data"]
+    def __init__(self, data: dict, logo_bytes=None, sig_bytes=None, coc_bytes=None):
+        self.d = data
+        self.logo_bytes = logo_bytes
+        self.sig_bytes = sig_bytes
+        self.coc_bytes = coc_bytes
+        self.buf = io.BytesIO()
+        self.page_num = 0
+        self.total_pages = data.get("total_page_count", 12)
 
-    with st.form("sample_form", clear_on_submit=True):
-        lab_id = st.text_input("Lab ID", generate_id("LIMS"))
-        sample_id = st.text_input("Sample ID")
-        matrix = st.selectbox("Matrix", ["Water", "Soil", "Air", "Other"])
-        date_collected = get_date_input("Date Collected")
-        date_received = get_date_input("Date Received")
+    def build(self) -> bytes:
+        c = canvas.Canvas(self.buf, pagesize=letter)
+        c.setTitle(f"KELP COA — WO {self.d.get('work_order','')}")
 
-        if st.form_submit_button("Add Sample"):
-            page1_data["samples"].append({
-                "lab_id": lab_id,
-                "sample_id": sample_id,
-                "matrix": matrix,
-                "date_collected": date_collected,
-                "date_received": date_received,
-            })
+        self._page_cover_letter(c)
+        self._page_case_narrative(c)
+        self._page_sample_result_summary(c)
+        self._pages_sample_results(c)
+        self._page_mb_summary(c)
+        self._page_lcs_lcsd_summary(c)
+        self._page_qualifiers(c)
+        self._page_receipt_checklist(c)
+        self._page_login_summary(c)
+        self._page_coc(c)
 
-    st.write("**Current Samples:**")
-    if page1_data["samples"]:
-        for i, sample in enumerate(page1_data["samples"]):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"**{i+1}.** Lab ID: {sample['lab_id']}, Sample ID: {sample['sample_id']}, "
-                         f"Matrix: {sample['matrix']}, Date Collected: {sample['date_collected']}, "
-                         f"Date Received: {sample['date_received']}")
-            with col2:
-                if st.button(f"❌ Remove", key=f"del_sample_{i}"):
-                    del page1_data["samples"][i]
-                    st.rerun()
-    else:
-        st.info("No samples added yet.")
+        c.save()
+        return self.buf.getvalue()
 
-    # Display Report ID and Report Date (from shared state)
-    st.text_input("Report ID", value=page1_data["report_id"], disabled=True)
-    st.text_input("Report Date", value=page1_data["report_date"], disabled=True)
-    render_nav_buttons()
+    # ---- helpers ----
+    def _new_page(self, c):
+        if self.page_num > 0:
+            c.showPage()
+        self.page_num += 1
 
-
-
-def render_analytical_results_page():
-    """Renders the analytical results page."""
-    st.header("Analytical Results")
-    if "page2_data" not in st.session_state:
-        st.session_state["page2_data"] = {
-            "report_id": generate_id(),
-            "report_date": datetime.date.today().strftime("%m/%d/%Y"),
-            "workorder_name": st.session_state["cover_data"].get("work_order",""), #default
-            "results": [],
-        }
-    p2 = st.session_state["page2_data"]
-    p2["workorder_name"] = st.text_input("Work Order #",p2["workorder_name"])
-
-    # pick analyte, method
-    analyte = st.selectbox("Analyte", list(analyte_to_methods.keys()))
-    method = st.selectbox("Method", analyte_to_methods[analyte])
-    
-    with st.form("analysis_form", clear_on_submit=True):
-        # Conditionally display Lab ID dropdown
-        sample_lab_ids = [s_["lab_id"] for s_ in st.session_state["page1_data"].get("samples",[])]
-        if sample_lab_ids:
-            chosen_lab_id = st.selectbox("Lab ID", sample_lab_ids)
-            s_id = next((s_["sample_id"] for s_ in st.session_state["page1_data"]["samples"] if s_["lab_id"] == chosen_lab_id), "")
-            st.write(f"Corresponding Sample ID: {s_id}")
+    def _draw_logo(self, c, x, y, max_w=1.5*inch, max_h=0.9*inch):
+        if self.logo_bytes:
+            img = PILImage.open(io.BytesIO(self.logo_bytes))
+            iw, ih = img.size
+            scale = min(max_w / iw, max_h / ih)
+            draw_w, draw_h = iw * scale, ih * scale
+            tmp = io.BytesIO(self.logo_bytes)
+            c.drawImage(
+                tmp, x, y - draw_h, width=draw_w, height=draw_h,
+                preserveAspectRatio=True, mask='auto'
+            )
+            return draw_h
         else:
-            chosen_lab_id = st.text_input("Lab ID","")
-            s_id = ""
-    
-        
-        analysis_date = get_date_input("Analysis Date", datetime.date.today().strftime("%m/%d/%Y"))
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            df = st.text_input("DF","")
-        with c2:
-            mdl = st.text_input("MDL","")
-        with c3:
-            pql = st.text_input("PQL","")
-        with c4:
-            res = st.text_input("Result","ND")
-        un = st.selectbox("Unit", ["mg/L","µg/L","µS/cm","none"])
-    
-        if st.form_submit_button("Add Analytical Result"):
-            if chosen_lab_id:
-                p2["results"].append({
-                    "lab_id": chosen_lab_id,
-                    "sample_id": s_id,
-                    "analysis_date": analysis_date,  # Store the analysis date per sample
-                    "parameter": analyte,
-                    "analysis": method,
-                    "df": df,
-                    "mdl": mdl,
-                    "pql": pql,
-                    "result": res,
-                    "unit": un
-                })
+            # Fallback: draw text logo
+            c.setFont("Helvetica-Bold", 18)
+            c.setFillColor(KETOS_DARK_BLUE)
+            c.drawString(x, y - 20, "KETOS")
+            c.setFont("Helvetica", 7)
+            c.setFillColor(KETOS_TEAL)
+            c.drawString(x, y - 30, "ENVIRONMENTAL LAB SERVICES")
+            c.setFillColor(black)
+            return 35
 
-  
-    st.write("**Current Analytical Results:**")
-    if p2["results"]:
-        for i, r_ in enumerate(p2["results"]):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"**{i+1}.** Lab ID: {r_['lab_id']} (Sample ID: {r_.get('sample_id','')}), "
-                         f"Parameter: {r_['parameter']}, Analysis: {r_['analysis']}, DF: {r_['df']}, "
-                         f"MDL: {r_['mdl']}, PQL: {r_['pql']}, Result: {r_['result']} {r_['unit']}")
-            with col2:
-                if st.button(f"❌ Remove", key=f"del_result_{i}"):
-                    del p2["results"][i]
-                    st.rerun()
-    else:
-        st.info("No results yet.")
+    def _draw_footer(self, c):
+        y = 0.5 * inch
+        c.setFont("Helvetica", 8)
+        c.setFillColor(black)
+        c.drawString(MARGIN, y, f"Total Page Count:  {self.total_pages}")
+        c.drawRightString(PAGE_W - MARGIN, y, f"Page {self.page_num} of {self.total_pages}")
+
+    def _draw_header_with_logo(self, c, title=None):
+        """Draw the KETOS logo in the top-left + optional centered title. Returns y below header."""
+        logo_h = self._draw_logo(c, MARGIN, PAGE_H - 0.6*inch)
+        y = PAGE_H - 0.6*inch - logo_h - 0.15*inch
+        if title:
+            c.setFont("Helvetica-Bold", 13)
+            c.setFillColor(black)
+            c.drawCentredString(PAGE_W / 2, y, title)
+            y -= 24
+        return y
+
+    def _draw_line(self, c, y, x1=None, x2=None):
+        if x1 is None: x1 = MARGIN
+        if x2 is None: x2 = PAGE_W - MARGIN
+        c.setStrokeColor(black)
+        c.setLineWidth(0.5)
+        c.line(x1, y, x2, y)
+
+    def _field_row(self, c, y, label, value, x=MARGIN, label_w=120, font_size=9):
+        c.setFont("Helvetica-Bold", font_size)
+        c.drawString(x, y, label)
+        c.setFont("Helvetica", font_size)
+        c.drawString(x + label_w, y, str(value))
+        return y - 14
+
+    def _draw_table(self, c, y, headers, rows, col_widths, x_start=None,
+                    header_bg=KETOS_LIGHT_GRAY, font_size=8, row_height=14,
+                    header_font_size=8, bold_cols=None, align=None):
+        """
+        Draw a simple table at (x_start, y). Returns y below the table.
+        `bold_cols` — set of column indices to bold.
+        `align` — list of 'L','C','R' per column.
+        """
+        if x_start is None:
+            x_start = MARGIN
+        if bold_cols is None:
+            bold_cols = set()
+        if align is None:
+            align = ['L'] * len(headers)
+
+        num_cols = len(headers)
+        total_w = sum(col_widths)
+
+        # Header
+        c.setFillColor(header_bg)
+        c.rect(x_start, y - row_height, total_w, row_height, fill=1, stroke=0)
+        c.setFillColor(black)
+        c.setFont("Helvetica-Bold", header_font_size)
+        cx = x_start
+        for i, h in enumerate(headers):
+            pad = 3
+            if align[i] == 'C':
+                c.drawCentredString(cx + col_widths[i]/2, y - row_height + 4, h)
+            elif align[i] == 'R':
+                c.drawRightString(cx + col_widths[i] - pad, y - row_height + 4, h)
+            else:
+                c.drawString(cx + pad, y - row_height + 4, h)
+            cx += col_widths[i]
+        y -= row_height
+
+        # Draw header bottom line
+        c.setStrokeColor(black)
+        c.setLineWidth(0.5)
+        c.line(x_start, y, x_start + total_w, y)
+
+        # Rows
+        for row in rows:
+            y -= row_height
+            if y < 0.8*inch:
+                self._draw_footer(c)
+                self._new_page(c)
+                y = self._draw_header_with_logo(c)
+                y -= 10
+            cx = x_start
+            for i, val in enumerate(row):
+                pad = 3
+                if i in bold_cols:
+                    c.setFont("Helvetica-Bold", font_size)
+                else:
+                    c.setFont("Helvetica", font_size)
+                text = str(val) if val is not None else ""
+                if align[i] == 'C':
+                    c.drawCentredString(cx + col_widths[i]/2, y + 3, text)
+                elif align[i] == 'R':
+                    c.drawRightString(cx + col_widths[i] - pad, y + 3, text)
+                else:
+                    c.drawString(cx + pad, y + 3, text)
+                cx += col_widths[i]
+            # Row bottom line
+            c.setStrokeColor(KETOS_LIGHT_GRAY)
+            c.setLineWidth(0.3)
+            c.line(x_start, y, x_start + total_w, y)
+
+        return y
+
+    # ================================================================
+    # PAGE 1: COVER LETTER
+    # ================================================================
+    def _page_cover_letter(self, c):
+        self._new_page(c)
+        # Logo
+        logo_h = self._draw_logo(c, MARGIN, PAGE_H - 0.5*inch, max_w=1.8*inch, max_h=1.1*inch)
+
+        y = PAGE_H - 0.5*inch - logo_h - 0.25*inch
+
+        # Lab address block
+        c.setFont("Helvetica", 9)
+        for line in [self.d.get("client_contact", ""), LAB_ENTITY] + LAB_ADDRESS_LINES[1:] + [LAB_PHONE, LAB_EMAIL]:
+            if line:
+                c.drawString(MARGIN, y, line)
+                y -= 13
+
+        # RE: line
+        y -= 6
+        c.drawString(MARGIN, y, f"RE: {self.d.get('project_name','')}")
+        y -= 20
+
+        # Work Order
+        c.drawCentredString(PAGE_W / 2, y, f"Work Order No.:  {self.d.get('work_order','')}")
+        y -= 40
+
+        # Dear ...
+        c.setFont("Helvetica", 10)
+        contact = self.d.get("client_contact", "Valued Client")
+        c.drawString(MARGIN + 20, y, f"Dear {contact}:")
+        y -= 24
+
+        # Body paragraphs
+        num_samp = self.d.get("num_samples_text", "1")
+        recv_date = self.d.get("date_received_text", "")
+        body1 = f"KELP received {num_samp} sample(s) on {recv_date} for the analyses presented in the following Report."
+        body2 = "All data for associated QC met EPA or laboratory specification(s) except where noted in the case narrative."
+        elap = self.d.get("elap_number", "XXXX")
+        phone = self.d.get("lab_phone_display", "(408) 603-5552")
+        body3 = f"KELP is certified by the State of California, ELAP #{elap}. If you have any questions regarding these test results, please feel free to contact the Project Management Team at {phone}."
+
+        for txt in [body1, "", body2, "", body3]:
+            if txt == "":
+                y -= 10
+            else:
+                # Word-wrap manually at ~85 chars
+                words = txt.split()
+                line = ""
+                for w in words:
+                    if len(line + " " + w) > 90:
+                        c.drawString(MARGIN + 20, y, line.strip())
+                        y -= 14
+                        line = w
+                    else:
+                        line = line + " " + w if line else w
+                if line:
+                    c.drawString(MARGIN + 20, y, line.strip())
+                    y -= 14
+
+        y -= 30
+        # Signature
+        if self.sig_bytes:
+            sig_img = io.BytesIO(self.sig_bytes)
+            c.drawImage(sig_img, MARGIN + 20, y - 60, width=1.5*inch, height=0.8*inch,
+                        preserveAspectRatio=True, mask='auto')
+            y_sig = y - 65
+        else:
+            y_sig = y - 20
+
+        # Approval date on right
+        approval_date = self.d.get("approval_date", "")
+        c.setFont("Helvetica", 10)
+        c.drawString(PAGE_W/2 + 40, y_sig + 15, str(approval_date))
+        self._draw_line(c, y_sig + 10, PAGE_W/2 + 40, PAGE_W/2 + 180)
+        c.drawString(PAGE_W/2 + 40, y_sig - 2, "Date")
+
+        # Approver name/title on left
+        self._draw_line(c, y_sig + 10, MARGIN + 20, MARGIN + 180)
+        c.drawString(MARGIN + 20, y_sig - 2, self.d.get("approver_name", ""))
+        c.drawString(MARGIN + 20, y_sig - 14, self.d.get("approver_title", ""))
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 2: CASE NARRATIVE
+    # ================================================================
+    def _page_case_narrative(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c)
+
+        # Date right-aligned
+        c.setFont("Helvetica-Bold", 9)
+        c.drawRightString(PAGE_W - MARGIN, y, f"Date:  {self.d.get('report_date','')}")
+        y -= 5
+        self._draw_line(c, y)
+        y -= 16
+
+        # Client / Project / WO
+        y = self._field_row(c, y, "Client:", self.d.get("client_company", ""))
+        y = self._field_row(c, y, "Project:", self.d.get("project_name", ""))
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(MARGIN, y, "Work Order:")
+        y -= 14
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN, y, str(self.d.get("work_order", "")))
+
+        # CASE NARRATIVE centered title
+        c.setFont("Helvetica-Bold", 13)
+        c.drawCentredString(PAGE_W/2, y, "CASE NARRATIVE")
+        y -= 8
+        self._draw_line(c, y)
+        y -= 18
+
+        # Boilerplate paragraphs
+        c.setFont("Helvetica", 9)
+        paras = []
+        if self.d.get("qc_met", True):
+            paras.append("Unless otherwise indicated in the following narrative, no issues encountered with the receiving, preparation, analysis or reporting of the results associated with this work order.")
+        if not self.d.get("method_blank_corrected", False):
+            paras.append("Unless otherwise indicated in the following narrative, no results have been method and/or field blank corrected.")
+        paras.append("Reported results relate only to the items/samples tested by the laboratory.")
+        paras.append("This report shall not be reproduced, except in full, without the written approval of KETOS INC.")
+
+        custom = self.d.get("case_narrative_custom", "")
+        if custom:
+            paras.insert(0, custom)
+
+        for txt in paras:
+            y -= 4
+            words = txt.split()
+            line = ""
+            for w in words:
+                if len(line + " " + w) > 95:
+                    c.drawString(MARGIN + 10, y, line.strip())
+                    y -= 13
+                    line = w
+                else:
+                    line = line + " " + w if line else w
+            if line:
+                c.drawString(MARGIN + 10, y, line.strip())
+                y -= 13
+            y -= 6
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 3: SAMPLE RESULT SUMMARY
+    # ================================================================
+    def _page_sample_result_summary(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c, "Sample Result Summary")
+        y -= 10
+
+        # Report prepared for / dates
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(MARGIN, y, "Report prepared for:")
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN + 120, y, self.d.get("client_contact", ""))
+        c.setFont("Helvetica-Bold", 9)
+        c.drawRightString(PAGE_W - MARGIN, y, f"Date Received: {self.d.get('date_received_text','')}")
+        y -= 13
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN + 120, y, self.d.get("client_company", ""))
+        c.setFont("Helvetica-Bold", 9)
+        c.drawRightString(PAGE_W - MARGIN, y, f"Date Reported: {self.d.get('report_date','')}")
+        y -= 18
+
+        samples = self.d.get("samples", [])
+        for samp in samples:
+            # Sample header line
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(MARGIN, y, samp.get("client_sample_id", ""))
+            wo = self.d.get("work_order", "")
+            lab_id = samp.get("lab_sample_id", "")
+            c.drawRightString(PAGE_W - MARGIN, y, lab_id)
+            y -= 4
+            self._draw_line(c, y)
+            y -= 4
+
+            # Table
+            headers = ["Parameters:", "Analysis Method", "DF", "MDL", "PQL", "Results", "Unit"]
+            col_w = [170, 80, 35, 55, 55, 55, 40]
+            align = ['L', 'C', 'C', 'C', 'C', 'R', 'C']
+            results = samp.get("results", [])
+            rows = []
+            for r in results:
+                rows.append([
+                    r.get("parameter", ""),
+                    r.get("method", ""),
+                    r.get("df", "1"),
+                    r.get("mdl", ""),
+                    r.get("pql", ""),
+                    r.get("result", ""),
+                    r.get("unit", "mg/L"),
+                ])
+            y = self._draw_table(c, y, headers, rows, col_w, align=align)
+            y -= 16
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGES 4+: SAMPLE RESULTS (detailed, per sample per prep method)
+    # ================================================================
+    def _pages_sample_results(self, c):
+        samples = self.d.get("samples", [])
+        for samp in samples:
+            self._new_page(c)
+            y = self._draw_header_with_logo(c, "SAMPLE RESULTS")
+            y -= 6
+
+            # Report prepared for + dates header
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(MARGIN, y, "Report prepared for:")
+            c.setFont("Helvetica", 8)
+            c.drawString(MARGIN + 105, y, self.d.get("client_contact", ""))
+            c.setFont("Helvetica-Bold", 8)
+            c.drawRightString(PAGE_W-MARGIN, y, f"Date/Time Received: {self.d.get('date_received_text','')}")
+            y -= 12
+            c.setFont("Helvetica", 8)
+            c.drawString(MARGIN + 105, y, self.d.get("client_company", ""))
+            c.setFont("Helvetica-Bold", 8)
+            c.drawRightString(PAGE_W-MARGIN, y, f"Date Reported: {self.d.get('report_date','')}")
+            y -= 14
+
+            # Client Sample Info box
+            box_y = y
+            c.setStrokeColor(black)
+            c.setLineWidth(0.5)
+            info_h = 72
+            c.rect(MARGIN, box_y - info_h, CONTENT_W, info_h, fill=0, stroke=1)
+
+            inner_y = box_y - 12
+            left_x = MARGIN + 5
+            mid_x = PAGE_W / 2
+
+            fields_left = [
+                ("Client Sample ID:", samp.get("client_sample_id", "")),
+                ("Project Name/Location:", self.d.get("project_name", "")),
+                ("Project Number:", self.d.get("project_number", "")),
+                ("Date/Time Sampled:", samp.get("date_sampled", "")),
+                ("SDG:", samp.get("sdg", "")),
+            ]
+            fields_right = [
+                ("Lab Sample ID:", samp.get("lab_sample_id", "")),
+                ("Sample Matrix:", samp.get("matrix", "Water")),
+            ]
+            for lbl, val in fields_left:
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(left_x, inner_y, lbl)
+                c.setFont("Helvetica", 8)
+                c.drawString(left_x + 115, inner_y, str(val))
+                inner_y -= 12
+
+            inner_y2 = box_y - 12
+            for lbl, val in fields_right:
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(mid_x, inner_y2, lbl)
+                c.setFont("Helvetica", 8)
+                c.drawString(mid_x + 90, inner_y2, str(val))
+                inner_y2 -= 12
+
+            y = box_y - info_h - 8
+
+            # Prep method groups
+            prep_groups = samp.get("prep_groups", [])
+            for pg in prep_groups:
+                if y < 1.5*inch:
+                    self._draw_footer(c)
+                    self._new_page(c)
+                    y = self._draw_header_with_logo(c, "SAMPLE RESULTS")
+                    y -= 10
+
+                # Prep method header (light blue bar)
+                prep_h = 28
+                c.setFillColor(KETOS_LIGHT_BLUE)
+                c.rect(MARGIN, y - prep_h, CONTENT_W, prep_h, fill=1, stroke=1)
+                c.setFillColor(black)
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(MARGIN + 5, y - 12, f"Prep Method:   {pg.get('prep_method','')}")
+                c.drawString(MARGIN + 5, y - 24, f"Prep Batch ID:  {pg.get('prep_batch_id','')}")
+                c.setFont("Helvetica-Bold", 8)
+                mid = PAGE_W / 2 + 30
+                c.drawString(mid, y - 12, f"Prep Batch Date/Time:")
+                c.setFont("Helvetica", 8)
+                c.drawString(mid + 130, y - 12, pg.get("prep_date_time", ""))
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(mid, y - 24, f"Prep Analyst:")
+                c.setFont("Helvetica", 8)
+                c.drawString(mid + 130, y - 24, pg.get("prep_analyst", ""))
+                y -= prep_h + 2
+
+                # Results table
+                headers = ["Parameters:", "Analysis\nMethod", "DF", "MDL", "PQL", "Results", "Q", "Units", "Analyzed Time", "By", "Analytical\nBatch"]
+                col_w = [110, 55, 25, 42, 42, 50, 20, 35, 72, 28, 55]
+                align_list = ['L','C','C','C','C','R','C','C','C','C','C']
+                rows = []
+                for r in pg.get("results", []):
+                    rows.append([
+                        r.get("parameter",""),
+                        r.get("method",""),
+                        r.get("df","1"),
+                        r.get("mdl",""),
+                        r.get("pql",""),
+                        r.get("result",""),
+                        r.get("qualifier",""),
+                        r.get("unit","mg/L"),
+                        r.get("analyzed_time",""),
+                        r.get("analyst",""),
+                        r.get("analytical_batch",""),
+                    ])
+                y = self._draw_table(c, y, headers, rows, col_w, align=align_list,
+                                     bold_cols={5}, font_size=7.5, header_font_size=7)
+                y -= 14
+
+            self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 7: MB SUMMARY REPORT
+    # ================================================================
+    def _page_mb_summary(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c, "MB Summary Report")
+        y -= 6
+
+        mb_batches = self.d.get("mb_batches", [])
+        for mb in mb_batches:
+            if y < 1.5*inch:
+                self._draw_footer(c)
+                self._new_page(c)
+                y = self._draw_header_with_logo(c, "MB Summary Report")
+                y -= 10
+
+            # Batch header
+            hdr_fields = [
+                [("Work Order:", mb.get("work_order", self.d.get("work_order",""))),
+                 ("Prep Method:", mb.get("prep_method","")),
+                 ("Prep Date:", mb.get("prep_date","")),
+                 ("Prep Batch:", mb.get("prep_batch",""))],
+                [("Matrix:", mb.get("matrix","Water")),
+                 ("Analytical Method:", mb.get("analytical_method","")),
+                 ("Analyzed Date:", mb.get("analyzed_date","")),
+                 ("Analytical Batch:", mb.get("analytical_batch",""))],
+                [("Units:", mb.get("units","mg/L")), ("",""), ("",""), ("","")],
+            ]
+            for row_fields in hdr_fields:
+                cx = MARGIN
+                c.setFont("Helvetica-Bold", 8)
+                for lbl, val in row_fields:
+                    c.setFont("Helvetica-Bold", 8)
+                    c.drawString(cx, y, lbl)
+                    c.setFont("Helvetica", 8)
+                    c.drawString(cx + 80, y, str(val))
+                    cx += CONTENT_W / 4
+                y -= 13
+            y -= 4
+
+            headers = ["Parameters", "MDL", "PQL", "Method Blank\nConc.", "Lab\nQualifier"]
+            col_w = [140, 55, 55, 80, 60]
+            align_list = ['L','C','C','C','C']
+            rows = []
+            for r in mb.get("results", []):
+                rows.append([
+                    r.get("parameter",""),
+                    r.get("mdl",""),
+                    r.get("pql",""),
+                    r.get("mb_conc","ND"),
+                    r.get("qualifier",""),
+                ])
+            y = self._draw_table(c, y, headers, rows, col_w, align=align_list)
+            y -= 18
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 8: LCS/LCSD SUMMARY
+    # ================================================================
+    def _page_lcs_lcsd_summary(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c, "LCS/LCSD Summary Report")
+
+        # Subtitle
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawRightString(PAGE_W - MARGIN, y + 18, "Raw values are used in quality control assessment.")
+        y -= 6
+
+        lcs_batches = self.d.get("lcs_batches", [])
+        for lcs in lcs_batches:
+            if y < 1.5*inch:
+                self._draw_footer(c)
+                self._new_page(c)
+                y = self._draw_header_with_logo(c, "LCS/LCSD Summary Report")
+                y -= 10
+
+            # Batch header
+            hdr_fields = [
+                [("Work Order:", lcs.get("work_order", self.d.get("work_order",""))),
+                 ("Prep Method:", lcs.get("prep_method","")),
+                 ("Prep Date:", lcs.get("prep_date","")),
+                 ("Prep Batch:", lcs.get("prep_batch",""))],
+                [("Matrix:", lcs.get("matrix","Water")),
+                 ("Analytical Method:", lcs.get("analytical_method","")),
+                 ("Analyzed Date:", lcs.get("analyzed_date","")),
+                 ("Analytical Batch:", lcs.get("analytical_batch",""))],
+                [("Units:", lcs.get("units","mg/L")), ("",""), ("",""), ("","")],
+            ]
+            for row_fields in hdr_fields:
+                cx = MARGIN
+                for lbl, val in row_fields:
+                    c.setFont("Helvetica-Bold", 8)
+                    c.drawString(cx, y, lbl)
+                    c.setFont("Helvetica", 8)
+                    c.drawString(cx + 80, y, str(val))
+                    cx += CONTENT_W / 4
+                y -= 13
+            y -= 4
+
+            headers = ["Parameters","MDL","PQL","Method\nBlank Conc.","Spike\nConc.",
+                       "LCS %\nRecovery","LCSD %\nRecovery","LCS/LCSD\n% RPD",
+                       "%\nRecovery\nLimits","% RPD\nLimits","Lab\nQualifier"]
+            col_w = [80, 38, 38, 48, 38, 44, 44, 44, 48, 38, 40]
+            align_list = ['L','C','C','C','C','C','C','C','C','C','C']
+            rows = []
+            for r in lcs.get("results", []):
+                rows.append([
+                    r.get("parameter",""),
+                    r.get("mdl",""),
+                    r.get("pql",""),
+                    r.get("mb_conc","ND"),
+                    r.get("spike_conc",""),
+                    r.get("lcs_recovery",""),
+                    r.get("lcsd_recovery",""),
+                    r.get("rpd",""),
+                    r.get("recovery_limits","80 - 120"),
+                    r.get("rpd_limits","20"),
+                    r.get("qualifier",""),
+                ])
+            y = self._draw_table(c, y, headers, rows, col_w, align=align_list,
+                                 font_size=7, header_font_size=6.5, row_height=13)
+            y -= 18
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 9: QUALIFIERS & DEFINITIONS
+    # ================================================================
+    def _page_qualifiers(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c, "Laboratory Qualifiers and Definitions")
+        y -= 6
+
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(MARGIN, y, "DEFINITIONS:")
+        y -= 8
+
+        # Definitions box
+        c.setStrokeColor(black)
+        c.setLineWidth(0.5)
+
+        def_start_y = y
+        c.setFont("Helvetica", 7.5)
+        y -= 6
+        for term, defn in DEFINITIONS:
+            if y < 1.2*inch:
+                break
+            c.setFont("Helvetica-Bold", 7.5)
+            text = f"{term}"
+            c.drawString(MARGIN + 5, y, text)
+            c.setFont("Helvetica", 7.5)
+            # wrap definition
+            words = (f" — {defn}").split()
+            line = ""
+            x_off = MARGIN + 5 + c.stringWidth(text, "Helvetica-Bold", 7.5)
+            first_line = True
+            for w in words:
+                test = line + " " + w if line else w
+                if c.stringWidth(test, "Helvetica", 7.5) > (CONTENT_W - 15 - (x_off - MARGIN - 5 if first_line else 0)):
+                    if first_line:
+                        c.drawString(x_off, y, line)
+                        first_line = False
+                    else:
+                        c.drawString(MARGIN + 5, y, line)
+                    y -= 10
+                    line = w
+                else:
+                    line = test
+            if line:
+                if first_line:
+                    c.drawString(x_off, y, line)
+                else:
+                    c.drawString(MARGIN + 5, y, line)
+                y -= 10
+            y -= 4
+
+        y -= 8
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(MARGIN, y, "LABORATORY QUALIFIERS:")
+        y -= 6
+
+        c.setStrokeColor(black)
+        c.rect(MARGIN, y - 200, CONTENT_W, 200 + (y - (y-200))/200 * 10, stroke=1, fill=0)
+
+        y -= 10
+        for code, desc in QUALIFIER_DEFINITIONS:
+            if y < 0.8*inch:
+                break
+            c.setFont("Helvetica-Bold", 7.5)
+            c.drawString(MARGIN + 8, y, code)
+            c.setFont("Helvetica", 7.5)
+            # Wrap
+            max_w = CONTENT_W - 50
+            words = (f" — {desc}").split()
+            line = ""
+            for w in words:
+                test = line + " " + w if line else w
+                if c.stringWidth(test, "Helvetica", 7.5) > max_w:
+                    c.drawString(MARGIN + 35, y, line)
+                    y -= 10
+                    line = w
+                else:
+                    line = test
+            if line:
+                c.drawString(MARGIN + 35, y, line)
+                y -= 10
+            y -= 2
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 10: SAMPLE RECEIPT CHECKLIST
+    # ================================================================
+    def _page_receipt_checklist(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c, "Sample Receipt Checklist")
+        y -= 10
+
+        rcpt = self.d.get("receipt", {})
+
+        # Header fields
+        left_fields = [
+            ("Client Name:", self.d.get("client_company","")),
+            ("Project Name:", self.d.get("project_name","")),
+            ("Work Order No.:", self.d.get("work_order","")),
+        ]
+        right_fields = [
+            ("Date and Time Received:", rcpt.get("date_time_received","")),
+            ("Received By:", rcpt.get("received_by","")),
+            ("Physically Logged By:", rcpt.get("physically_logged_by","")),
+            ("Checklist Completed By:", rcpt.get("checklist_completed_by","")),
+            ("Carrier Name:", rcpt.get("carrier_name","")),
+        ]
+
+        for i, (lbl, val) in enumerate(left_fields):
+            c.setFont("Helvetica", 9)
+            c.drawString(MARGIN, y, f"{lbl}  ")
+            c.setFont("Helvetica", 9)
+            c.drawString(MARGIN + 110, y, str(val))
+            if i < len(right_fields):
+                rl, rv = right_fields[i]
+                c.drawString(PAGE_W/2 + 20, y, f"{rl}  {rv}")
+            y -= 14
+        # remaining right fields
+        for i in range(len(left_fields), len(right_fields)):
+            rl, rv = right_fields[i]
+            c.drawString(PAGE_W/2 + 20, y, f"{rl}  {rv}")
+            y -= 14
+
+        y -= 8
+        # Section: Chain of Custody
+        sections = [
+            ("Chain of Custody (COC) Information", [
+                ("Chain of custody present?", rcpt.get("coc_present","")),
+                ("Chain of custody signed when relinquished and received?", rcpt.get("coc_signed","")),
+                ("Chain of custody agrees with sample labels?", rcpt.get("coc_agrees","")),
+                ("Custody seals intact on sample bottles?", rcpt.get("custody_seals_bottles","")),
+            ]),
+            ("Sample Receipt Information", [
+                ("Custody seals intact on shipping container/cooler?", rcpt.get("custody_seals_cooler","")),
+                ("Shipping Container/Cooler In Good Condition?", rcpt.get("cooler_good","")),
+                ("Samples in proper container/bottle?", rcpt.get("proper_container","")),
+                ("Samples containers intact?", rcpt.get("containers_intact","")),
+                ("Sufficient sample volume for indicated test?", rcpt.get("sufficient_volume","")),
+            ]),
+            ("Sample Preservation and Hold Time (HT) Information", [
+                ("All samples received within holding time?", rcpt.get("within_holding_time","")),
+                ("Container/Temp Blank temperature in compliance?", f"{rcpt.get('temp_compliance','')}          Temperature:  {rcpt.get('temperature','')}  °C"),
+                ("Water-VOA vials have zero headspace?", rcpt.get("voa_headspace","")),
+                ("Water-pH acceptable upon receipt?", rcpt.get("ph_acceptable","")),
+            ]),
+        ]
+        for sec_title, items in sections:
+            c.setFont("Helvetica-Bold", 10)
+            c.drawCentredString(PAGE_W/2, y, sec_title)
+            y -= 3
+            self._draw_line(c, y, MARGIN + 60, PAGE_W - MARGIN - 60)
+            y -= 14
+            for q, a in items:
+                c.setFont("Helvetica", 9)
+                c.drawString(MARGIN + 20, y, q)
+                c.setFont("Helvetica", 9)
+                c.drawString(PAGE_W/2 + 60, y, str(a))
+                y -= 14
+            y -= 6
+
+        # pH checked/adjusted
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN + 20, y, f"pH Checked by:  {rcpt.get('ph_checked_by','')}")
+        c.drawString(PAGE_W/2 + 20, y, f"pH Adjusted by:  {rcpt.get('ph_adjusted_by','')}")
+        y -= 18
+
+        # Comments
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(MARGIN, y, "Comments:")
+        y -= 14
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN + 10, y, rcpt.get("receipt_comments",""))
+
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 11: LOGIN SUMMARY REPORT
+    # ================================================================
+    def _page_login_summary(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c, "Login Summary Report")
+        y -= 10
+
+        ls = self.d.get("login_summary", {})
+        # Header fields
+        left = [
+            ("Client ID:", f"{ls.get('client_id_code','')}    {self.d.get('client_company','')}"),
+            ("Project Name:", self.d.get("project_name","")),
+            ("Project #:", self.d.get("project_number","")),
+            ("Report Due Date:", ls.get("report_due_date","")),
+        ]
+        right = [
+            ("QC Level:", ls.get("qc_level","II")),
+            ("TAT Requested:", ls.get("tat_requested","")),
+            ("Date Received:", ls.get("date_received_login","")),
+            ("Time Received:", ls.get("time_received_login","")),
+        ]
+        for i in range(max(len(left), len(right))):
+            if i < len(left):
+                lbl, val = left[i]
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(MARGIN, y, lbl)
+                c.setFont("Helvetica", 8)
+                c.drawString(MARGIN + 95, y, str(val))
+            if i < len(right):
+                rl, rv = right[i]
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(PAGE_W/2 + 80, y, rl)
+                c.setFont("Helvetica", 8)
+                c.drawString(PAGE_W/2 + 175, y, str(rv))
+            y -= 14
+
+        # Comments
+        y -= 4
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(MARGIN, y, "Comments:")
+        y -= 14
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(MARGIN, y, f"Work Order # :    {self.d.get('work_order','')}")
+        y -= 18
+        self._draw_line(c, y)
+        y -= 4
+
+        # Sample table
+        headers = ["WO Sample ID", "Client\nSample ID", "Collection\nDate/Time", "Matrix",
+                    "Scheduled\nDisposal", "Sample\nOn Hold", "Test\nOn Hold", "Requested\nTests", "Subbed"]
+        col_w = [72, 62, 62, 40, 55, 42, 35, 80, 40]
+        align_list = ['L','L','C','C','C','C','C','L','C']
+        rows = []
+        for samp in self.d.get("samples", []):
+            tests = ", ".join([pg.get("prep_method","") for pg in samp.get("prep_groups",[])])
+            rows.append([
+                samp.get("lab_sample_id",""),
+                samp.get("client_sample_id",""),
+                samp.get("date_sampled",""),
+                samp.get("matrix","Water"),
+                samp.get("disposal_date",""),
+                "", "",
+                tests,
+                "",
+            ])
+        y = self._draw_table(c, y, headers, rows, col_w, align=align_list,
+                             font_size=7, header_font_size=6.5)
+        self._draw_footer(c)
+
+    # ================================================================
+    # PAGE 12: CHAIN OF CUSTODY
+    # ================================================================
+    def _page_coc(self, c):
+        self._new_page(c)
+        y = self._draw_header_with_logo(c)
+
+        if self.coc_bytes:
+            coc_img = io.BytesIO(self.coc_bytes)
+            img = PILImage.open(io.BytesIO(self.coc_bytes))
+            iw, ih = img.size
+            max_w = CONTENT_W
+            max_h = PAGE_H - 2*inch
+            scale = min(max_w / iw, max_h / ih)
+            draw_w, draw_h = iw * scale, ih * scale
+            x = MARGIN + (CONTENT_W - draw_w) / 2
+            c.drawImage(coc_img, x, y - draw_h - 10, width=draw_w, height=draw_h,
+                        preserveAspectRatio=True, mask='auto')
+        else:
+            c.setFont("Helvetica-Bold", 14)
+            c.drawCentredString(PAGE_W/2, PAGE_H/2, "CHAIN OF CUSTODY")
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(PAGE_W/2, PAGE_H/2 - 20, "(Upload CoC image in the application)")
+
+        self._draw_footer(c)
 
 
-    render_nav_buttons()
-
-def render_quality_control_page():
-    st.header("Quality Control Data")
-    p3 = st.session_state["page3_data"]
-    p3.setdefault("qc_entries", [])
-
-    # pick analyte, method
-    analyte = st.selectbox("QC Parameter (Analyte)", list(analyte_to_methods.keys()))
-    method = st.selectbox("QC Method", analyte_to_methods[analyte])
-
-    with st.form("qc_form", clear_on_submit=True):
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            q_unit = st.text_input("Unit","mg/L")
-        with c2:
-            q_mdl = st.text_input("MDL","0.0010")
-        with c3:
-            q_pql = st.text_input("PQL","0.005")
-        with c4:
-            q_qual = st.text_input("Lab Qualifier","")
-        blank_conc = st.text_input("Method Blank Conc.","")
-
-        if st.form_submit_button("Add QC Entry"):
-            q_batch = generate_qc_batch()
-            mb = generate_method_blank()
-            p3["qc_entries"].append({
-                "qc_batch": q_batch,
-                "qc_method": method,
-                "parameter": analyte,
-                "unit": q_unit,
-                "mdl": q_mdl,
-                "pql": q_pql,
-                "blank_result": blank_conc,
-                "lab_qualifier": q_qual,
-                "method_blank": mb
-            })
-
-    st.write("**Current QC Data:**")
-
-    if p3["qc_entries"]:
-        for i, qc_ in enumerate(p3["qc_entries"]):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"**{i+1}.** QC Batch: {qc_['qc_batch']}, Method: {qc_['qc_method']}, "
-                         f"Parameter: {qc_['parameter']}, Unit: {qc_['unit']}, MDL: {qc_['mdl']}, "
-                         f"PQL: {qc_['pql']}, Blank Result: {qc_['blank_result']}, Lab Qualifier: {qc_['lab_qualifier']}, Method Blank: {qc_['method_blank']}")
-            with col2:
-                if st.button(f"❌ Remove", key=f"del_qc_{i}"):
-                    del p3["qc_entries"][i]
-                    st.rerun()
-    else:
-        st.info("No QC data added yet.")
-    render_nav_buttons()
-
-
-
-#####################################
-# PDF Report Generation
-#####################################
-
-def create_pdf_report(lab_name, lab_address, lab_email, lab_phone,
-                      cover_data, page1_data, page2_data, page3_data):
-    """Generates the full PDF report.
-
-    Args:
-        lab_name (str): Name of the laboratory.
-        lab_address (str): Address of the laboratory.
-        lab_email (str): Email of the laboratory.
-        lab_phone (str): Phone number of the laboratory.
-        cover_data (dict): Data from the cover page.
-        page1_data (dict): Data from the sample summary page.
-        page2_data (dict): Data from the analytical results page.
-        page3_data (dict): Data from the quality control page.
-
-    Returns:
-        bytes: The PDF report as a byte stream.
-    """
-    pdf = PDF()  # Use the custom PDF class
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-    pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
-    pdf.add_font("DejaVu", "I", "DejaVuSans-Oblique.ttf", uni=True)
-    pdf.set_font("DejaVu", size=12)
-
-    # Cover Page
-    pdf.add_page()
-    pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, "Water Quality Analysis Report", 0, 1, "C")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Report ID: {cover_data.get('report_id', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Report Date: {cover_data.get('report_date', 'N/A')}", 0, 1, "L")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 8, "Client Information", 0, 1, "L")
-    pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Client Name: {cover_data.get('client_name', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Address: {cover_data.get('address_line', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Phone: {cover_data.get('phone', 'N/A')}", 0, 1, "L")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 8, "Project Information", 0, 1, "L")
-    pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Project Name: {cover_data.get('project_name', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Work Order #: {cover_data.get('work_order', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Analysis Type: {cover_data.get('analysis_type', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"COC #: {cover_data.get('coc_number', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"PO #: {cover_data.get('po_number', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Date Samples Received: {cover_data.get('date_samples_received', 'N/A')}", 0, 1, "L")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 8, "Comments / Case Narrative", 0, 1, "L")
-    pdf.set_font("DejaVu", size=12)
-    pdf.multi_cell(0, 6, cover_data.get('comments', 'N/A'), 0, 'L')
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 8, "Laboratory Information", 0, 1, "L")
-    pdf.set_font("DejaVu", size=12)
-    pdf.cell(0, 6, f"Laboratory Name: {lab_name}", 0, 1, "L")
-    pdf.cell(0, 6, f"Address: {lab_address}", 0, 1, "L")
-    pdf.cell(0, 6, f"Email: {lab_email}", 0, 1, "L")
-    pdf.cell(0, 6, f"Phone: {lab_phone}", 0, 1, "L")
-    pdf.ln(10)
-    pdf.cell(0, 6, f"Signatory Name: {cover_data.get('signatory_name', 'N/A')}", 0, 1, "L")
-    pdf.cell(0, 6, f"Signatory Title: {cover_data.get('signatory_title', 'N/A')}", 0, 1, "L")
-
-    # Sample Summary Page
-    pdf.add_page()
-    pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, "Sample Summary", 0, 1, "C")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(30, 8, "Lab ID", 1, 0, "C")
-    pdf.cell(30, 8, "Sample ID", 1, 0, "C")
-    pdf.cell(25, 8, "Matrix", 1, 0, "C")
-    pdf.cell(40, 8, "Date Collected", 1, 0, "C")
-    pdf.cell(40, 8, "Date Received", 1, 1, "C")
-    pdf.set_font("DejaVu", size=12)
-    for sample in page1_data.get("samples", []):
-        pdf.cell(30, 6, sample.get("lab_id", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, sample.get("sample_id", "N/A"), 1, 0, "C")
-        pdf.cell(25, 6, sample.get("matrix", "N/A"), 1, 0, "C")
-        pdf.cell(40, 6, sample.get("date_collected", "N/A"), 1, 0, "C")
-        pdf.cell(40, 6, sample.get("date_received", "N/A"), 1, 1, "C")
-
-    # Analytical Results Page
-    pdf.add_page()
-    pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, "Analytical Results", 0, 1, "C")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(30, 8, "Lab ID", 1, 0, "C")
-    pdf.cell(30, 8, "Sample ID", 1, 0, "C")
-    pdf.cell(30, 8, "Analysis Date", 1, 0, "C")  # Add Analysis Date
-    pdf.cell(40, 8, "Parameter", 1, 0, "C")
-    pdf.cell(30, 8, "Analysis", 1, 0, "C")
-    pdf.cell(20, 8, "DF", 1, 0, "C")
-    pdf.cell(20, 8, "MDL", 1, 0, "C")
-    pdf.cell(20, 8, "PQL", 1, 0, "C")
-    pdf.cell(20, 8, "Result", 1, 0, "C")
-    pdf.cell(20,8,"Unit",1,1,"C")
-    pdf.set_font("DejaVu", size=12)
-    for result in page2_data.get("results", []):
-        pdf.cell(30, 6, result.get("lab_id", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, result.get("sample_id", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, result.get("analysis_date", "N/A"), 1, 0, "C")  # Display Analysis Date
-        pdf.cell(40, 6, result.get("parameter", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, result.get("analysis", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, result.get("df", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, result.get("mdl", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, result.get("pql", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, result.get("result", "N/A"), 1, 0, "C")
-        pdf.cell(20,6, result.get("unit","N/A"),1,1,"C")
-
-    # Quality Control Data Page
-    pdf.add_page()
-    pdf.set_font("DejaVu", "B", 16)
-    pdf.cell(0, 10, "Quality Control Data", 0, 1, "C")
-    pdf.ln(10)
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(30, 8, "QC Batch", 1, 0, "C")
-    pdf.cell(30, 8, "QC Method", 1, 0, "C")
-    pdf.cell(40, 8, "Parameter", 1, 0, "C")
-    pdf.cell(20, 8, "Unit", 1, 0, "C")
-    pdf.cell(20, 8, "MDL", 1, 0, "C")
-    pdf.cell(20, 8, "PQL", 1, 0, "C")
-    pdf.cell(30, 8, "Blank Result", 1, 0, "C")
-    pdf.cell(30, 8, "Lab Qualifier", 1, 0, "C")
-    pdf.cell(30,8,"Method Blank",1,1,"C")
-    pdf.set_font("DejaVu", size=12)
-    for qc_entry in page3_data.get("qc_entries", []):
-        pdf.cell(30, 6, qc_entry.get("qc_batch", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, qc_entry.get("qc_method", "N/A"), 1, 0, "C")
-        pdf.cell(40, 6, qc_entry.get("parameter", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, qc_entry.get("unit", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, qc_entry.get("mdl", "N/A"), 1, 0, "C")
-        pdf.cell(20, 6, qc_entry.get("pql", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, qc_entry.get("blank_result", "N/A"), 1, 0, "C")
-        pdf.cell(30, 6, qc_entry.get("lab_qualifier", "N/A"), 1, 0, "C")
-        pdf.cell(30,6,qc_entry.get("method_blank","N/A"),1,1,"C")
-
-    # Add a page break before the disclaimer if there are more than 3 pages
-    if pdf.page_no() > 3:
-        pdf.add_page()
-
-    # Disclaimer Page
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "Disclaimer", 0, 1, "C")
-    pdf.set_font("DejaVu", size=10)
-    disclaimer_text = """
-    The analysis performed at KELP Laboratory were done using accepted laboratory 
-    practices and meet the quality assurance requirements of the NELAC program 
-    unless otherwise noted.  This report is for the exclusive use of the client 
-    and is not intended for use by any other party.  Results relate only to the 
-    samples as received.  KELP Laboratory assumes no responsibility for the 
-    representativeness of the sample, or for the manner in which the sample 
-    was collected, handled, and/or stored. This report shall not be reproduced 
-    except in full, without written approval of KELP Laboratory.
-    """
-    pdf.multi_cell(0, 5, disclaimer_text, 0, 'J')
-
-    # Laboratory Information Footer on all pages.
-    pdf.set_y(-20)
-    pdf.set_font("DejaVu", size=10)  # Smaller font size for footer
-    pdf.cell(0, 5, f"{lab_name} - {lab_address} - {lab_email} - {lab_phone}", 0, 0, "C")
-
-    # Create the PDF object
-    buffer = io.BytesIO()
-    pdf.output(buffer)
-    buffer.seek(0)
-    return buffer.read()
-
-
-
-# MAIN APP
-
+# ============================================================================
+# STREAMLIT UI
+# ============================================================================
 def main():
-    st.title("Water Quality COA")
+    st.set_page_config(
+        page_title="KELP COA Generator",
+        page_icon="🧪",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
 
+    # Custom CSS
+    st.markdown("""
+    <style>
+    .stApp { font-family: 'Calibri', 'Segoe UI', sans-serif; }
+    .main-header {
+        background: linear-gradient(135deg, #1F4E79 0%, #4AAEC7 100%);
+        padding: 1.5rem 2rem; border-radius: 10px; margin-bottom: 1.5rem;
+        color: white;
+    }
+    .main-header h1 { color: white; margin: 0; font-size: 1.8rem; }
+    .main-header p { color: #D6E4F0; margin: 0.3rem 0 0 0; font-size: 0.95rem; }
+    .section-header {
+        background-color: #1F4E79; color: white;
+        padding: 0.5rem 1rem; border-radius: 5px; margin: 1rem 0 0.5rem 0;
+        font-weight: bold;
+    }
+    div[data-testid="stSidebar"] { background-color: #f8f9fa; }
+    .stButton > button {
+        background: linear-gradient(135deg, #1F4E79, #4AAEC7);
+        color: white; border: none; font-weight: bold;
+    }
+    .stButton > button:hover { background: linear-gradient(135deg, #163a5c, #3a9bb5); }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Render the top nav
-    render_navbar()
-    if st.button("🔄 Refresh / Start Over"):
-        reset_app()
-    page_container = st.container()
+    init_session()
 
-    # Initialize session state variables
-    if "current_page" not in st.session_state:
-        st.session_state.current_page = 0
-    if "page3_data" not in st.session_state:
-        st.session_state["page3_data"] = {} # Initialize page 3 data
+    # Header
+    st.markdown("""
+    <div class="main-header">
+        <h1>🧪 KELP — Certificate of Analysis Generator</h1>
+        <p>KETOS Environmental Lab Platform &nbsp;|&nbsp; TNI / ISO 17025 / ELAP Compliant</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # Decide page
+    # Sidebar — File uploads
+    with st.sidebar:
+        st.markdown("### 📁 File Uploads")
+        logo_file = st.file_uploader("KELP Logo (PNG/JPG)", type=["png","jpg","jpeg"], key="logo_up")
+        if logo_file:
+            st.session_state.logo_bytes = logo_file.read()
+            st.image(st.session_state.logo_bytes, width=200)
 
-    page_idx = st.session_state.current_page
-    if page_idx == 0:
-        render_cover_page()
-    elif page_idx == 1:
-        render_sample_summary_page()
-    elif page_idx == 2:
-        render_analytical_results_page()
-    elif page_idx == 3:
-        render_quality_control_page()
+        sig_file = st.file_uploader("Approver Signature (PNG/JPG)", type=["png","jpg","jpeg"], key="sig_up")
+        if sig_file:
+            st.session_state.signature_bytes = sig_file.read()
+            st.image(st.session_state.signature_bytes, width=150)
 
+        coc_file = st.file_uploader("Chain of Custody Scan (PNG/JPG/PDF)", type=["png","jpg","jpeg"], key="coc_up")
+        if coc_file:
+            st.session_state.coc_image_bytes = coc_file.read()
+            st.success("CoC uploaded ✓")
 
-    # If last page, show generate
-    if st.session_state.current_page == len(PAGES) - 1:
-        st.markdown("### All pages completed.")
-        if st.button("Generate PDF"):
-            pdf_bytes = create_pdf_report(
-                lab_name="KELP Laboratory",
-                lab_address="520 Mercury Dr, Sunnyvale, CA 94085",
-                lab_email="kelp@ketoslab.com",
-                lab_phone="(408) 461-8860",
-                cover_data=st.session_state["cover_data"],
-                page1_data=st.session_state["page1_data"],
-                page2_data=st.session_state["page2_data"],
-                page3_data=st.session_state["page3_data"],
-            )
+        st.divider()
+        st.markdown("### ⚙️ Settings")
+        st.session_state.elap_number = st.text_input("ELAP #", st.session_state.elap_number)
+        st.session_state.lab_phone_display = st.text_input("Lab Phone", st.session_state.lab_phone_display)
+
+    # ---- Main Content in Tabs ----
+    tabs = st.tabs([
+        "📋 Report Info",
+        "🧫 Samples & Results",
+        "🔬 QC Data",
+        "📦 Receipt & Login",
+        "📄 Generate COA"
+    ])
+
+    # ============================
+    # TAB 1: REPORT INFO
+    # ============================
+    with tabs[0]:
+        st.markdown('<div class="section-header">Client Information</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.session_state.client_contact = st.text_input("Contact Name", st.session_state.client_contact)
+            st.session_state.client_company = st.text_input("Company", st.session_state.client_company)
+            st.session_state.client_address = st.text_input("Address", st.session_state.client_address)
+            st.session_state.client_email = st.text_input("Email", st.session_state.client_email)
+        with c2:
+            st.session_state.project_name = st.text_input("Project Name", st.session_state.project_name)
+            st.session_state.project_number = st.text_input("Project Number", st.session_state.project_number)
+            st.session_state.work_order = st.text_input("Work Order #", st.session_state.work_order)
+            st.session_state.client_id = st.text_input("Client ID", st.session_state.client_id)
+
+        st.markdown('<div class="section-header">Report Details</div>', unsafe_allow_html=True)
+        c3, c4 = st.columns(2)
+        with c3:
+            st.session_state.report_date = st.date_input("Report Date", st.session_state.report_date)
+            st.session_state.num_samples_text = st.text_input("Number of Samples", st.session_state.num_samples_text)
+            st.session_state.date_received_text = st.text_input("Date Received (as displayed)", st.session_state.date_received_text, placeholder="January 13, 2022")
+        with c4:
+            st.session_state.approver_name = st.text_input("Approver Name", st.session_state.approver_name)
+            st.session_state.approver_title = st.text_input("Approver Title", st.session_state.approver_title)
+            st.session_state.approval_date = st.date_input("Approval Date", st.session_state.approval_date)
+
+        st.markdown('<div class="section-header">Case Narrative</div>', unsafe_allow_html=True)
+        st.session_state.qc_met = st.checkbox("All QC met EPA specifications", st.session_state.qc_met)
+        st.session_state.method_blank_corrected = st.checkbox("Results are method/field blank corrected", st.session_state.method_blank_corrected)
+        st.session_state.case_narrative_custom = st.text_area(
+            "Custom Narrative (optional — appears first)",
+            st.session_state.case_narrative_custom, height=80
+        )
+
+    # ============================
+    # TAB 2: SAMPLES & RESULTS
+    # ============================
+    with tabs[1]:
+        st.markdown('<div class="section-header">Samples</div>', unsafe_allow_html=True)
+        samples = st.session_state.samples
+
+        num_samples = st.number_input("Number of samples", min_value=0, max_value=50,
+                                       value=len(samples), step=1)
+        # Adjust list length
+        while len(samples) < num_samples:
+            samples.append({
+                "client_sample_id": "",
+                "lab_sample_id": "",
+                "matrix": "Water",
+                "date_sampled": "",
+                "sdg": "",
+                "disposal_date": "",
+                "results": [],
+                "prep_groups": [],
+            })
+        while len(samples) > num_samples:
+            samples.pop()
+
+        for si, samp in enumerate(samples):
+            with st.expander(f"🧪 Sample {si+1}: {samp.get('lab_sample_id','(new)')}", expanded=(si==0)):
+                sc1, sc2, sc3 = st.columns(3)
+                with sc1:
+                    samp["client_sample_id"] = st.text_input("Client Sample ID", samp.get("client_sample_id",""), key=f"csid_{si}")
+                    samp["lab_sample_id"] = st.text_input("Lab Sample ID", samp.get("lab_sample_id",""), key=f"lsid_{si}")
+                with sc2:
+                    samp["matrix"] = st.selectbox("Matrix", ["Water","Soil","Air","Other"], index=0, key=f"mx_{si}")
+                    samp["date_sampled"] = st.text_input("Date/Time Sampled", samp.get("date_sampled",""), key=f"ds_{si}")
+                with sc3:
+                    samp["sdg"] = st.text_input("SDG", samp.get("sdg",""), key=f"sdg_{si}")
+                    samp["disposal_date"] = st.text_input("Scheduled Disposal", samp.get("disposal_date",""), key=f"disp_{si}")
+
+                # Summary results (for page 3)
+                st.markdown("**Summary Results** (Page 3 — Sample Result Summary)")
+                n_res = st.number_input("# of result rows", min_value=0, max_value=50,
+                                        value=len(samp.get("results",[])), key=f"nres_{si}")
+                while len(samp["results"]) < n_res:
+                    samp["results"].append({"parameter":"","method":"","df":"1","mdl":"","pql":"","result":"","unit":"mg/L"})
+                while len(samp["results"]) > n_res:
+                    samp["results"].pop()
+
+                for ri, r in enumerate(samp["results"]):
+                    rc = st.columns([3,2,1,1,1,1,1])
+                    r["parameter"] = rc[0].text_input("Param", r.get("parameter",""), key=f"rp_{si}_{ri}")
+                    r["method"] = rc[1].text_input("Method", r.get("method",""), key=f"rm_{si}_{ri}")
+                    r["df"] = rc[2].text_input("DF", r.get("df","1"), key=f"rd_{si}_{ri}")
+                    r["mdl"] = rc[3].text_input("MDL", r.get("mdl",""), key=f"rmdl_{si}_{ri}")
+                    r["pql"] = rc[4].text_input("PQL", r.get("pql",""), key=f"rpql_{si}_{ri}")
+                    r["result"] = rc[5].text_input("Result", r.get("result",""), key=f"rr_{si}_{ri}")
+                    r["unit"] = rc[6].text_input("Unit", r.get("unit","mg/L"), key=f"ru_{si}_{ri}")
+
+                st.divider()
+
+                # Detailed prep groups (for pages 4-6)
+                st.markdown("**Detailed Results by Prep Method** (Pages 4+ — Sample Results)")
+                n_pg = st.number_input("# of Prep Method groups", min_value=0, max_value=10,
+                                       value=len(samp.get("prep_groups",[])), key=f"npg_{si}")
+                while len(samp["prep_groups"]) < n_pg:
+                    samp["prep_groups"].append({
+                        "prep_method":"","prep_batch_id":"","prep_date_time":"","prep_analyst":"",
+                        "results":[]
+                    })
+                while len(samp["prep_groups"]) > n_pg:
+                    samp["prep_groups"].pop()
+
+                for pi, pg in enumerate(samp["prep_groups"]):
+                    st.markdown(f"**Prep Group {pi+1}**")
+                    pc = st.columns(4)
+                    pg["prep_method"] = pc[0].text_input("Prep Method", pg.get("prep_method",""), key=f"pm_{si}_{pi}")
+                    pg["prep_batch_id"] = pc[1].text_input("Prep Batch ID", pg.get("prep_batch_id",""), key=f"pbi_{si}_{pi}")
+                    pg["prep_date_time"] = pc[2].text_input("Prep Date/Time", pg.get("prep_date_time",""), key=f"pdt_{si}_{pi}")
+                    pg["prep_analyst"] = pc[3].text_input("Prep Analyst", pg.get("prep_analyst",""), key=f"pa_{si}_{pi}")
+
+                    n_pr = st.number_input("# results in group", min_value=0, max_value=50,
+                                           value=len(pg.get("results",[])), key=f"npr_{si}_{pi}")
+                    while len(pg["results"]) < n_pr:
+                        pg["results"].append({
+                            "parameter":"","method":"","df":"1","mdl":"","pql":"","result":"",
+                            "qualifier":"","unit":"mg/L","analyzed_time":"","analyst":"","analytical_batch":""
+                        })
+                    while len(pg["results"]) > n_pr:
+                        pg["results"].pop()
+
+                    for pri, pr in enumerate(pg["results"]):
+                        prc = st.columns([2,1.5,0.5,1,1,1,0.5,0.7,1.5,0.7,1])
+                        pr["parameter"] = prc[0].text_input("Param", pr.get("parameter",""), key=f"prp_{si}_{pi}_{pri}")
+                        pr["method"] = prc[1].text_input("AMethod", pr.get("method",""), key=f"prm_{si}_{pi}_{pri}")
+                        pr["df"] = prc[2].text_input("DF", pr.get("df","1"), key=f"prd_{si}_{pi}_{pri}")
+                        pr["mdl"] = prc[3].text_input("MDL", pr.get("mdl",""), key=f"prmdl_{si}_{pi}_{pri}")
+                        pr["pql"] = prc[4].text_input("PQL", pr.get("pql",""), key=f"prpql_{si}_{pi}_{pri}")
+                        pr["result"] = prc[5].text_input("Result", pr.get("result",""), key=f"prr_{si}_{pi}_{pri}")
+                        pr["qualifier"] = prc[6].text_input("Q", pr.get("qualifier",""), key=f"prq_{si}_{pi}_{pri}")
+                        pr["unit"] = prc[7].text_input("Unit", pr.get("unit","mg/L"), key=f"pru_{si}_{pi}_{pri}")
+                        pr["analyzed_time"] = prc[8].text_input("Analyzed", pr.get("analyzed_time",""), key=f"prat_{si}_{pi}_{pri}")
+                        pr["analyst"] = prc[9].text_input("By", pr.get("analyst",""), key=f"prby_{si}_{pi}_{pri}")
+                        pr["analytical_batch"] = prc[10].text_input("ABatch", pr.get("analytical_batch",""), key=f"prab_{si}_{pi}_{pri}")
+
+    # ============================
+    # TAB 3: QC DATA
+    # ============================
+    with tabs[2]:
+        st.markdown('<div class="section-header">Method Blank (MB) Batches</div>', unsafe_allow_html=True)
+        mb_batches = st.session_state.mb_batches
+        n_mb = st.number_input("# of MB batches", 0, 20, len(mb_batches), key="n_mb")
+        while len(mb_batches) < n_mb:
+            mb_batches.append({"prep_method":"","analytical_method":"","prep_date":"","analyzed_date":"",
+                               "prep_batch":"","analytical_batch":"","matrix":"Water","units":"mg/L",
+                               "results":[]})
+        while len(mb_batches) > n_mb:
+            mb_batches.pop()
+
+        for mi, mb in enumerate(mb_batches):
+            with st.expander(f"MB Batch {mi+1}: {mb.get('prep_method','')} / {mb.get('analytical_method','')}"):
+                mc = st.columns(4)
+                mb["prep_method"] = mc[0].text_input("Prep Method", mb.get("prep_method",""), key=f"mbpm_{mi}")
+                mb["analytical_method"] = mc[1].text_input("Analytical Method", mb.get("analytical_method",""), key=f"mbam_{mi}")
+                mb["prep_date"] = mc[2].text_input("Prep Date", mb.get("prep_date",""), key=f"mbpd_{mi}")
+                mb["analyzed_date"] = mc[3].text_input("Analyzed Date", mb.get("analyzed_date",""), key=f"mbad_{mi}")
+                mc2 = st.columns(4)
+                mb["prep_batch"] = mc2[0].text_input("Prep Batch", mb.get("prep_batch",""), key=f"mbpb_{mi}")
+                mb["analytical_batch"] = mc2[1].text_input("Analytical Batch", mb.get("analytical_batch",""), key=f"mbab_{mi}")
+                mb["matrix"] = mc2[2].text_input("Matrix", mb.get("matrix","Water"), key=f"mbmx_{mi}")
+                mb["units"] = mc2[3].text_input("Units", mb.get("units","mg/L"), key=f"mbun_{mi}")
+
+                n_mbr = st.number_input("# results", 0, 50, len(mb.get("results",[])), key=f"nmbr_{mi}")
+                while len(mb["results"]) < n_mbr:
+                    mb["results"].append({"parameter":"","mdl":"","pql":"","mb_conc":"ND","qualifier":""})
+                while len(mb["results"]) > n_mbr:
+                    mb["results"].pop()
+                for ri, r in enumerate(mb["results"]):
+                    rc = st.columns(5)
+                    r["parameter"] = rc[0].text_input("Param", r.get("parameter",""), key=f"mbrp_{mi}_{ri}")
+                    r["mdl"] = rc[1].text_input("MDL", r.get("mdl",""), key=f"mbrm_{mi}_{ri}")
+                    r["pql"] = rc[2].text_input("PQL", r.get("pql",""), key=f"mbrpq_{mi}_{ri}")
+                    r["mb_conc"] = rc[3].text_input("MB Conc.", r.get("mb_conc","ND"), key=f"mbrc_{mi}_{ri}")
+                    r["qualifier"] = rc[4].text_input("Qual", r.get("qualifier",""), key=f"mbrqu_{mi}_{ri}")
+
+        st.markdown('<div class="section-header">LCS/LCSD Batches</div>', unsafe_allow_html=True)
+        lcs_batches = st.session_state.lcs_batches
+        n_lcs = st.number_input("# of LCS/LCSD batches", 0, 20, len(lcs_batches), key="n_lcs")
+        while len(lcs_batches) < n_lcs:
+            lcs_batches.append({"prep_method":"","analytical_method":"","prep_date":"","analyzed_date":"",
+                                "prep_batch":"","analytical_batch":"","matrix":"Water","units":"mg/L",
+                                "results":[]})
+        while len(lcs_batches) > n_lcs:
+            lcs_batches.pop()
+
+        for li, lcs in enumerate(lcs_batches):
+            with st.expander(f"LCS/LCSD Batch {li+1}: {lcs.get('prep_method','')} / {lcs.get('analytical_method','')}"):
+                lc = st.columns(4)
+                lcs["prep_method"] = lc[0].text_input("Prep Method", lcs.get("prep_method",""), key=f"lpm_{li}")
+                lcs["analytical_method"] = lc[1].text_input("Analytical Method", lcs.get("analytical_method",""), key=f"lam_{li}")
+                lcs["prep_date"] = lc[2].text_input("Prep Date", lcs.get("prep_date",""), key=f"lpd_{li}")
+                lcs["analyzed_date"] = lc[3].text_input("Analyzed Date", lcs.get("analyzed_date",""), key=f"lad_{li}")
+                lc2 = st.columns(4)
+                lcs["prep_batch"] = lc2[0].text_input("Prep Batch", lcs.get("prep_batch",""), key=f"lpb_{li}")
+                lcs["analytical_batch"] = lc2[1].text_input("Analytical Batch", lcs.get("analytical_batch",""), key=f"lab_{li}")
+                lcs["matrix"] = lc2[2].text_input("Matrix", lcs.get("matrix","Water"), key=f"lmx_{li}")
+                lcs["units"] = lc2[3].text_input("Units", lcs.get("units","mg/L"), key=f"lun_{li}")
+
+                n_lr = st.number_input("# results", 0, 50, len(lcs.get("results",[])), key=f"nlr_{li}")
+                while len(lcs["results"]) < n_lr:
+                    lcs["results"].append({"parameter":"","mdl":"","pql":"","mb_conc":"ND","spike_conc":"",
+                                           "lcs_recovery":"","lcsd_recovery":"","rpd":"",
+                                           "recovery_limits":"80 - 120","rpd_limits":"20","qualifier":""})
+                while len(lcs["results"]) > n_lr:
+                    lcs["results"].pop()
+                for ri, r in enumerate(lcs["results"]):
+                    rc = st.columns([2,1,1,1,1,1,1,1,1.2,0.8,0.8])
+                    r["parameter"] = rc[0].text_input("Param", r.get("parameter",""), key=f"lrp_{li}_{ri}")
+                    r["mdl"] = rc[1].text_input("MDL", r.get("mdl",""), key=f"lrm_{li}_{ri}")
+                    r["pql"] = rc[2].text_input("PQL", r.get("pql",""), key=f"lrpq_{li}_{ri}")
+                    r["mb_conc"] = rc[3].text_input("MB", r.get("mb_conc","ND"), key=f"lrc_{li}_{ri}")
+                    r["spike_conc"] = rc[4].text_input("Spike", r.get("spike_conc",""), key=f"lrs_{li}_{ri}")
+                    r["lcs_recovery"] = rc[5].text_input("LCS%", r.get("lcs_recovery",""), key=f"lrlcs_{li}_{ri}")
+                    r["lcsd_recovery"] = rc[6].text_input("LCSD%", r.get("lcsd_recovery",""), key=f"lrlcsd_{li}_{ri}")
+                    r["rpd"] = rc[7].text_input("RPD", r.get("rpd",""), key=f"lrrpd_{li}_{ri}")
+                    r["recovery_limits"] = rc[8].text_input("Rec Lim", r.get("recovery_limits","80 - 120"), key=f"lrrl_{li}_{ri}")
+                    r["rpd_limits"] = rc[9].text_input("RPD Lim", r.get("rpd_limits","20"), key=f"lrrpl_{li}_{ri}")
+                    r["qualifier"] = rc[10].text_input("Q", r.get("qualifier",""), key=f"lrq_{li}_{ri}")
+
+    # ============================
+    # TAB 4: RECEIPT & LOGIN
+    # ============================
+    with tabs[3]:
+        st.markdown('<div class="section-header">Sample Receipt Checklist (Page 10)</div>', unsafe_allow_html=True)
+        rcpt = st.session_state.receipt
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            rcpt["date_time_received"] = st.text_input("Date/Time Received", rcpt["date_time_received"], key="rdt")
+            rcpt["received_by"] = st.text_input("Received By", rcpt["received_by"], key="rrb")
+            rcpt["physically_logged_by"] = st.text_input("Physically Logged By", rcpt["physically_logged_by"], key="rplb")
+            rcpt["checklist_completed_by"] = st.text_input("Checklist Completed By", rcpt["checklist_completed_by"], key="rccb")
+            rcpt["carrier_name"] = st.text_input("Carrier Name", rcpt["carrier_name"], key="rcn")
+        with rc2:
+            yes_no = ["Yes", "No", "Not Present", "N/A"]
+            rcpt["coc_present"] = st.selectbox("CoC present?", yes_no, index=yes_no.index(rcpt.get("coc_present","Yes")), key="rcp")
+            rcpt["coc_signed"] = st.selectbox("CoC signed?", yes_no, index=yes_no.index(rcpt.get("coc_signed","Yes")), key="rcs")
+            rcpt["coc_agrees"] = st.selectbox("CoC agrees with labels?", yes_no, index=yes_no.index(rcpt.get("coc_agrees","Yes")), key="rca")
+            rcpt["custody_seals_bottles"] = st.selectbox("Seals on bottles?", yes_no, index=yes_no.index(rcpt.get("custody_seals_bottles","Not Present")), key="rcsb")
+            rcpt["custody_seals_cooler"] = st.selectbox("Seals on cooler?", yes_no, index=yes_no.index(rcpt.get("custody_seals_cooler","Not Present")), key="rcsc")
+
+        rc3, rc4 = st.columns(2)
+        with rc3:
+            rcpt["cooler_good"] = st.selectbox("Cooler good condition?", yes_no, index=0, key="rcg")
+            rcpt["proper_container"] = st.selectbox("Proper containers?", yes_no, index=0, key="rpc")
+            rcpt["containers_intact"] = st.selectbox("Containers intact?", yes_no, index=0, key="rci")
+            rcpt["sufficient_volume"] = st.selectbox("Sufficient volume?", yes_no, index=0, key="rsv")
+        with rc4:
+            rcpt["within_holding_time"] = st.selectbox("Within holding time?", yes_no, index=0, key="rwh")
+            rcpt["temp_compliance"] = st.selectbox("Temp compliance?", ["Yes","No"], key="rtc")
+            rcpt["temperature"] = st.text_input("Temperature (°C)", rcpt["temperature"], key="rtemp")
+            voa_opts = ["No VOA vials submitted", "Yes", "No"]
+            rcpt["voa_headspace"] = st.selectbox("VOA headspace?", voa_opts, key="rvoa")
+            rcpt["ph_acceptable"] = st.selectbox("pH acceptable?", ["Yes","No"], key="rph")
+
+        rc5, rc6 = st.columns(2)
+        with rc5:
+            rcpt["ph_checked_by"] = st.text_input("pH Checked By", rcpt["ph_checked_by"], key="rphc")
+        with rc6:
+            rcpt["ph_adjusted_by"] = st.text_input("pH Adjusted By", rcpt["ph_adjusted_by"], key="rpha")
+        rcpt["receipt_comments"] = st.text_area("Receipt Comments", rcpt["receipt_comments"], key="rcom")
+
+        st.divider()
+        st.markdown('<div class="section-header">Login Summary (Page 11)</div>', unsafe_allow_html=True)
+        ls = st.session_state.login_summary
+        lc1, lc2 = st.columns(2)
+        with lc1:
+            ls["client_id_code"] = st.text_input("Client ID Code", ls["client_id_code"], key="lsci")
+            ls["qc_level"] = st.selectbox("QC Level", ["I","II","III","IV"], index=1, key="lsqc")
+            ls["report_due_date"] = st.text_input("Report Due Date", ls["report_due_date"], key="lsrd")
+        with lc2:
+            ls["tat_requested"] = st.text_input("TAT Requested", ls["tat_requested"], key="lstat")
+            ls["date_received_login"] = st.text_input("Date Received", ls["date_received_login"], key="lsdr")
+            ls["time_received_login"] = st.text_input("Time Received", ls["time_received_login"], key="lstr")
+        ls["login_comments"] = st.text_input("Login Comments", ls.get("login_comments",""), key="lsc")
+
+    # ============================
+    # TAB 5: GENERATE
+    # ============================
+    with tabs[4]:
+        st.markdown('<div class="section-header">Preview & Generate PDF</div>', unsafe_allow_html=True)
+
+        # Count pages
+        n_sample_pages = len(st.session_state.samples)
+        total_est = 3 + n_sample_pages + 5  # cover + case + summary + sample pages + MB + LCS + quals + receipt + login + coc
+        st.session_state.total_page_count = total_est
+
+        st.info(f"Estimated total pages: **{total_est}**  (Cover + Case Narrative + Summary + {n_sample_pages} Sample pages + MB + LCS/LCSD + Qualifiers + Receipt + Login + CoC)")
+
+        # Summary of entered data
+        with st.expander("📊 Data Summary", expanded=True):
+            st.write(f"**Work Order:** {st.session_state.work_order}")
+            st.write(f"**Client:** {st.session_state.client_company} — {st.session_state.client_contact}")
+            st.write(f"**Project:** {st.session_state.project_name}")
+            st.write(f"**Samples:** {len(st.session_state.samples)}")
+            st.write(f"**MB Batches:** {len(st.session_state.mb_batches)}")
+            st.write(f"**LCS Batches:** {len(st.session_state.lcs_batches)}")
+            st.write(f"**Logo:** {'✅' if st.session_state.logo_bytes else '❌ (text fallback)'}")
+            st.write(f"**Signature:** {'✅' if st.session_state.signature_bytes else '❌'}")
+            st.write(f"**CoC Image:** {'✅' if st.session_state.coc_image_bytes else '❌ (placeholder)'}")
+
+        if st.button("🖨️  Generate COA PDF", type="primary", use_container_width=True):
+            with st.spinner("Generating PDF..."):
+                data = {
+                    "elap_number": st.session_state.elap_number,
+                    "lab_phone_display": st.session_state.lab_phone_display,
+                    "report_date": str(st.session_state.report_date),
+                    "work_order": st.session_state.work_order,
+                    "total_page_count": st.session_state.total_page_count,
+                    "client_contact": st.session_state.client_contact,
+                    "client_company": st.session_state.client_company,
+                    "project_name": st.session_state.project_name,
+                    "project_number": st.session_state.project_number,
+                    "num_samples_text": st.session_state.num_samples_text,
+                    "date_received_text": st.session_state.date_received_text,
+                    "approver_name": st.session_state.approver_name,
+                    "approver_title": st.session_state.approver_title,
+                    "approval_date": str(st.session_state.approval_date),
+                    "qc_met": st.session_state.qc_met,
+                    "method_blank_corrected": st.session_state.method_blank_corrected,
+                    "case_narrative_custom": st.session_state.case_narrative_custom,
+                    "samples": st.session_state.samples,
+                    "mb_batches": st.session_state.mb_batches,
+                    "lcs_batches": st.session_state.lcs_batches,
+                    "receipt": st.session_state.receipt,
+                    "login_summary": st.session_state.login_summary,
+                }
+                builder = KelpCOA(
+                    data,
+                    logo_bytes=st.session_state.logo_bytes,
+                    sig_bytes=st.session_state.signature_bytes,
+                    coc_bytes=st.session_state.coc_image_bytes,
+                )
+                pdf_bytes = builder.build()
+
+            st.success(f"✅ COA generated — {len(pdf_bytes):,} bytes, {st.session_state.total_page_count} pages")
+
+            wo = st.session_state.work_order or "DRAFT"
+            filename = f"KELP_COA_{wo}_{date.today().strftime('%Y%m%d')}.pdf"
+
             st.download_button(
-                label="Download PDF Report",
+                label=f"⬇️ Download {filename}",
                 data=pdf_bytes,
-                file_name=f"Water_Quality_Report_{datetime.date.today()}.pdf",
+                file_name=filename,
                 mime="application/pdf",
+                use_container_width=True,
             )
 
+            # Inline preview
+            b64 = base64.b64encode(pdf_bytes).decode()
+            st.markdown(f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="800px"></iframe>',
+                        unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
     main()
-
