@@ -374,8 +374,8 @@ class KelpCOA:
             f"reported herein conform to the applicable TNI/NELAC Standards and the laboratory's "
             f"Quality Manual, where applicable, unless otherwise noted in the body of the report.", body_s))
         s.append(Paragraph(
-            f"KELP is certified by the State of California, ELAP #{elap}. If you have any questions "
-            f"concerning this report, please feel free to contact us at {phone}.", body_s))
+           
+            f"If you have any questions concerning this report, please feel free to contact us at {phone}.", body_s))
         s.append(Spacer(1, 24))
 
         # ── Signature block: "Sincerely," then sig image then name/title ──
@@ -401,11 +401,11 @@ class KelpCOA:
         s.append(Paragraph(str(self.d.get('approval_date','')), ST['b8']))
 
         # ── Bottom: Disclaimer + accreditation ──
-        s.append(Spacer(1, 30))
-        s.append(HLine(CW, LTGRAY, 0.3))
-        s.append(Spacer(1, 4))
-        disc_s = ParagraphStyle('disc2', parent=ST['b7'], textColor=MDGRAY, alignment=TA_CENTER)
-        s.append(Paragraph(DISCLAIMER, disc_s))
+         #s.append(Spacer(1, 30))
+        # s.append(HLine(CW, LTGRAY, 0.3))
+        # s.append(Spacer(1, 4))
+        # disc_s = ParagraphStyle('disc2', parent=ST['b7'], textColor=MDGRAY, alignment=TA_CENTER)
+        # s.append(Paragraph(DISCLAIMER, disc_s))
         return s
 
     # ═══════════════════════════════════════════════════════════════════════════
