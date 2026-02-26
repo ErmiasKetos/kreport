@@ -104,7 +104,7 @@ LAB = {
     "name": "KETOS Environmental Lab Services",
     "entity": "KETOS INC.",
     "addr": ["520 Mercury Dr", "Sunnyvale, California 94085"],
-    "phone": "(408) 603-5552",
+    "phone": "(408) 550-2162",
     "email": "info@ketoslab.com",
 }
 
@@ -314,60 +314,90 @@ class KelpCOA:
     # ═══════════════════════════════════════════════════════════════════════════
     def _pg_cover(self):
         s = []
-        s.append(Spacer(1, 10))
-        s.append(self._logo(mw=2*inch, mh=1*inch))
-        s.append(Spacer(1, 8))
-
-        for line in LAB["addr"] + [f"Tel: {LAB['phone']}", LAB["email"]]:
-            s.append(Paragraph(line, ST['b8']))
-        s.append(Spacer(1, 14))
-
-        # Recipient
-        s.append(Paragraph(self.d.get('client_contact',''), ST['bb9']))
-        s.append(Paragraph(self.d.get('client_company',''), ST['b9']))
-        for line in [self.d.get('client_address',''), self.d.get('client_city_state_zip','')]:
-            if line: s.append(Paragraph(line, ST['b9']))
-        s.append(Spacer(1, 10))
-
-        s.append(HLine(CW, NAVY, 0.6))
         s.append(Spacer(1, 6))
 
-        # RE / WO
+        # ── Top banner: Logo left | Lab info right (like Pace Analytical) ──
+        logo = self._logo(mw=1.8*inch, mh=0.8*inch)
+        lab_info = Paragraph(
+            f'<font size="8"><b>{LAB["entity"]}</b></font><br/>'
+            f'<font size="7" color="#4A5568">{LAB["addr"][0]}<br/>'
+            f'{LAB["addr"][1]}<br/>'
+            f'Tel: {LAB["phone"]}<br/>'
+            f'{LAB["email"]}</font>',
+            ParagraphStyle('labaddr', fontSize=7, leading=9.5, alignment=TA_RIGHT, textColor=DKGRAY))
+        banner = Table([[logo, lab_info]], colWidths=[CW*0.5, CW*0.5], hAlign='LEFT')
+        banner.setStyle(TableStyle([
+            ('VALIGN',(0,0),(-1,-1),'TOP'),
+            ('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),
+        ]))
+        s.append(banner)
+        s.append(Spacer(1, 4))
+        s.append(HLine(CW, NAVY, 1.5))
+        s.append(Spacer(1, 20))
+
+        # ── Date ──
+        rpt_date = self.d.get('report_date','')
+        s.append(Paragraph(str(rpt_date), ST['b9']))
+        s.append(Spacer(1, 18))
+
+        # ── Recipient block ──
+        contact = self.d.get('client_contact','')
+        company = self.d.get('client_company','')
+        addr = self.d.get('client_address','')
+        csz = self.d.get('client_city_state_zip','')
+        for line in [contact, company, addr, csz]:
+            if line:
+                s.append(Paragraph(line, ST['b9']))
+        s.append(Spacer(1, 18))
+
+        # ── RE block ──
         proj = self.d.get('project_name','')
         wo = self.d.get('work_order','')
-        s.append(Paragraph(f'RE: Project: <b>{proj}</b>', ST['b9']))
-        s.append(Paragraph(f'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;KELP Work Order No.: <b>{wo}</b>', ST['b9']))
-        s.append(Spacer(1, 16))
+        re_style = ParagraphStyle('re', parent=ST['b9'], leftIndent=36)
+        s.append(Paragraph(f'RE:&nbsp;&nbsp;&nbsp;Project: &nbsp;<b>{proj}</b>', ST['b9']))
+        s.append(Paragraph(f'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;KELP Work Order No.: &nbsp;<b>{wo}</b>', ST['b9']))
+        s.append(Spacer(1, 18))
 
-        # Body
-        bs = ParagraphStyle('cbody', parent=ST['b9'], fontSize=9.5, leading=14, alignment=TA_JUSTIFY,
-                            leftIndent=6, rightIndent=6, spaceBefore=6, spaceAfter=6)
+        # ── Salutation + body ──
+        s.append(Paragraph(f"Dear {contact}:", ST['b9']))
+        s.append(Spacer(1, 10))
+
+        body_s = ParagraphStyle('cbody', parent=ST['b9'], fontSize=9.5, leading=14.5,
+                                 alignment=TA_JUSTIFY, spaceBefore=4, spaceAfter=6)
         recv = self.d.get('date_received_text','')
-        n = self.d.get('num_samples_text','1')
         elap = self.d.get('elap_number','XXXX')
         phone = self.d.get('lab_phone_display', LAB['phone'])
 
-        s.append(Paragraph(f"Dear {self.d.get('client_contact','')}:", ST['b9']))
-        s.append(Spacer(1, 8))
         s.append(Paragraph(
-            f"Enclosed are the analytical results for sample(s) received by the laboratory on {recv}. "
-            f"The results relate only to the samples included in this report. Results reported herein "
-            f"conform to the applicable TNI/NELAC Standards and the laboratory's Quality Manual.", bs))
+            f"Enclosed are the analytical results for sample(s) received by the laboratory on "
+            f"{recv}. The results relate only to the samples included in this report. Results "
+            f"reported herein conform to the applicable TNI/NELAC Standards and the laboratory's "
+            f"Quality Manual, where applicable, unless otherwise noted in the body of the report.", body_s))
         s.append(Paragraph(
             f"KELP is certified by the State of California, ELAP #{elap}. If you have any questions "
-            f"concerning this report, please feel free to contact us at {phone}.", bs))
-        s.append(Spacer(1, 28))
+            f"concerning this report, please feel free to contact us at {phone}.", body_s))
+        s.append(Spacer(1, 24))
 
-        # Signature block
+        # ── Signature block: "Sincerely," then sig image then name/title ──
         s.append(Paragraph("Sincerely,", ST['b9']))
-        s.append(Spacer(1, 6))
+        s.append(Spacer(1, 4))
         if self.sig_bytes:
-            s.append(Image(self._img_buf(self.sig_bytes), width=1.3*inch, height=0.55*inch))
-            s.append(Spacer(1, 4))
-        s.append(HLine(2.2*inch, NAVY, 0.5))
+            s.append(Image(self._img_buf(self.sig_bytes), width=1.5*inch, height=0.6*inch))
+        else:
+            s.append(Spacer(1, 30))
+        s.append(Spacer(1, 2))
+        s.append(HLine(2.4*inch, NAVY, 0.5))
+        s.append(Spacer(1, 2))
         s.append(Paragraph(f"<b>{self.d.get('approver_name','')}</b>", ST['bb9']))
         s.append(Paragraph(self.d.get('approver_title',''), ST['b8']))
         s.append(Paragraph(str(self.d.get('approval_date','')), ST['b8']))
+
+        # ── Bottom: Disclaimer + accreditation ──
+        s.append(Spacer(1, 30))
+        s.append(HLine(CW, LTGRAY, 0.3))
+        s.append(Spacer(1, 4))
+        disc_s = ParagraphStyle('disc2', parent=ST['b7'], textColor=MDGRAY, alignment=TA_CENTER)
+        s.append(Paragraph(DISCLAIMER, disc_s))
         return s
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -705,7 +735,7 @@ class KelpCOA:
 # ═══════════════════════════════════════════════════════════════════════════════
 def init_session():
     defaults = {
-        "elap_number": "XXXX", "lab_phone_display": "(408) 603-5552",
+        "elap_number": "XXXX", "lab_phone_display": "(408) 550-2162",
         "report_date": date.today(), "work_order": "", "total_page_count": 12,
         "client_contact": "", "client_company": "", "client_address": "",
         "client_city_state_zip": "", "client_phone": "", "client_email": "",
