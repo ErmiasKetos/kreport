@@ -103,9 +103,9 @@ ST = _s()
 LAB = {
     "name": "KETOS Environmental Lab Services",
     "entity": "KETOS INC.",
-    "addr": ["1063 S De Anza Blvd", "San Jose, California 95129"],
+    "addr": ["520 Mercury Dr", "Sunnyvale, California 94085"],
     "phone": "(408) 603-5552",
-    "email": "kelp@ketos.com",
+    "email": "info@ketoslab.com",
 }
 
 QUALIFIERS = [
