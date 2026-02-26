@@ -850,6 +850,34 @@ def _fmt_datetime(d_val, t_val, fmt="%m/%d/%Y %H:%M"):
 # ═══════════════════════════════════════════════════════════════════════════════
 # STREAMLIT UI
 # ═══════════════════════════════════════════════════════════════════════════════
+def _safe_date(val):
+    """Coerce any value to a date object for st.date_input, or return today."""
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str) and val:
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+            try:
+                return datetime.strptime(val, fmt).date()
+            except ValueError:
+                continue
+    return date.today()
+
+def _safe_time(val):
+    """Coerce any value to a time object for st.time_input, or return None."""
+    if isinstance(val, time_type):
+        return val
+    if isinstance(val, datetime):
+        return val.time()
+    if isinstance(val, str) and val:
+        for fmt in ("%H:%M", "%H:%M:%S", "%I:%M %p"):
+            try:
+                return datetime.strptime(val, fmt).time()
+            except ValueError:
+                continue
+    return None
+
 def init_session():
     defaults = {
         "elap_number": "XXXX", "lab_phone_display": "(408) 550-2162",
@@ -987,13 +1015,13 @@ def main():
         st.markdown('<div class="sec-hdr">Report Details</div>', unsafe_allow_html=True)
         c3, c4 = st.columns(2)
         with c3:
-            st.session_state.report_date = st.date_input("Report Date", st.session_state.report_date)
+            st.session_state.report_date = st.date_input("Report Date", _safe_date(st.session_state.report_date))
             st.session_state.num_samples_text = st.text_input("Number of Samples", st.session_state.num_samples_text)
-            st.session_state.date_received = st.date_input("Date Received", st.session_state.date_received)
+            st.session_state.date_received = st.date_input("Date Received", _safe_date(st.session_state.date_received))
         with c4:
             st.session_state.approver_name = st.text_input("Approver Name", st.session_state.approver_name)
             st.session_state.approver_title = st.text_input("Approver Title", st.session_state.approver_title)
-            st.session_state.approval_date = st.date_input("Approval Date", st.session_state.approval_date)
+            st.session_state.approval_date = st.date_input("Approval Date", _safe_date(st.session_state.approval_date))
 
         st.markdown('<div class="sec-hdr">Case Narrative & Compliance</div>', unsafe_allow_html=True)
         st.session_state.qc_met = st.checkbox("All QC met EPA specifications", st.session_state.qc_met)
@@ -1042,13 +1070,10 @@ def main():
                 samp["lab_sample_id"]=sc[0].text_input("Lab Sample ID",samp.get("lab_sample_id",""),key=f"lsid_{si}")
                 samp["matrix"]=sc[1].selectbox("Matrix",["Water","Soil","Air","Other"],key=f"mx_{si}")
                 # Date pickers for sample dates
-                samp["date_sampled"]=sc[1].date_input("Date Sampled",
-                    samp.get("date_sampled") or date.today(), key=f"ds_{si}")
-                samp["time_sampled"]=sc[1].time_input("Time Sampled",
-                    samp.get("time_sampled") or None, key=f"ts_{si}")
+                samp["date_sampled"]=sc[1].date_input("Date Sampled", _safe_date(samp.get("date_sampled")), key=f"ds_{si}")
+                samp["time_sampled"]=sc[1].time_input("Time Sampled", _safe_time(samp.get("time_sampled")), key=f"ts_{si}")
                 samp["sdg"]=sc[2].text_input("SDG",samp.get("sdg",""),key=f"sdg_{si}")
-                samp["disposal_date"]=sc[2].date_input("Disposal Date",
-                    samp.get("disposal_date") or date.today(), key=f"disp_{si}")
+                samp["disposal_date"]=sc[2].date_input("Disposal Date", _safe_date(samp.get("disposal_date")), key=f"disp_{si}")
 
                 # ── Summary Results (Page 3) ──
                 st.markdown("**Summary Results** (Page 3)")
@@ -1078,10 +1103,8 @@ def main():
                     pc = st.columns(5)
                     pg["prep_method"]=pc[0].text_input("Prep Method",pg.get("prep_method",""),key=f"pm_{si}_{pi}")
                     pg["prep_batch_id"]=pc[1].text_input("Prep Batch ID",pg.get("prep_batch_id",""),key=f"pbi_{si}_{pi}")
-                    pg["prep_date"]=pc[2].date_input("Prep Date",
-                        pg.get("prep_date") or date.today(), key=f"pdt_{si}_{pi}")
-                    pg["prep_time"]=pc[3].time_input("Prep Time",
-                        pg.get("prep_time") or None, key=f"ptt_{si}_{pi}")
+                    pg["prep_date"]=pc[2].date_input("Prep Date", _safe_date(pg.get("prep_date")), key=f"pdt_{si}_{pi}")
+                    pg["prep_time"]=pc[3].time_input("Prep Time", _safe_time(pg.get("prep_time")), key=f"ptt_{si}_{pi}")
                     pg["prep_analyst"]=pc[4].text_input("Prep Analyst",pg.get("prep_analyst",""),key=f"pa_{si}_{pi}")
 
                     npr = st.number_input("# results",0,50,len(pg.get("results",[])),key=f"npr_{si}_{pi}")
@@ -1100,10 +1123,8 @@ def main():
                         pr["result"]=prc[5].text_input("Result",pr.get("result",""),key=f"prr_{si}_{pi}_{pri}")
                         pr["qualifier"] = _qualifier_selectbox(prc[6], "Q", pr.get("qualifier",""), f"prq_{si}_{pi}_{pri}")
                         pr["unit"]=prc[7].text_input("Unit",pr.get("unit",_unit_for_method(pr["method"])),key=f"pru_{si}_{pi}_{pri}")
-                        pr["analyzed_date"]=prc[8].date_input("Analyzed",
-                            pr.get("analyzed_date") or date.today(), key=f"prad_{si}_{pi}_{pri}")
-                        pr["analyzed_time"]=prc[9].time_input("Time",
-                            pr.get("analyzed_time") or None, key=f"prat_{si}_{pi}_{pri}")
+                        pr["analyzed_date"]=prc[8].date_input("Analyzed", _safe_date(pr.get("analyzed_date")), key=f"prad_{si}_{pi}_{pri}")
+                        pr["analyzed_time"]=prc[9].time_input("Time", _safe_time(pr.get("analyzed_time")), key=f"prat_{si}_{pi}_{pri}")
                         pr["analyst"]=prc[10].text_input("By",pr.get("analyst",""),key=f"prby_{si}_{pi}_{pri}")
                         pr["analytical_batch"]=prc[11].text_input("ABatch",pr.get("analytical_batch",""),key=f"prab_{si}_{pi}_{pri}")
 
@@ -1124,10 +1145,8 @@ def main():
                 mc=st.columns(4)
                 mb["prep_method"]=mc[0].text_input("Prep",mb.get("prep_method",""),key=f"mbpm_{mi}")
                 mb["analytical_method"] = _method_selectbox(mc[1], "Analytical", mb.get("analytical_method",""), f"mbam_{mi}")
-                mb["prep_date"]=mc[2].date_input("Prep Date",
-                    mb.get("prep_date") or date.today(), key=f"mbpd_{mi}")
-                mb["analyzed_date"]=mc[3].date_input("Analyzed Date",
-                    mb.get("analyzed_date") or date.today(), key=f"mbad_{mi}")
+                mb["prep_date"]=mc[2].date_input("Prep Date", _safe_date(mb.get("prep_date")), key=f"mbpd_{mi}")
+                mb["analyzed_date"]=mc[3].date_input("Analyzed Date", _safe_date(mb.get("analyzed_date")), key=f"mbad_{mi}")
                 mc2=st.columns(4)
                 mb["prep_batch"]=mc2[0].text_input("Prep Batch",mb.get("prep_batch",""),key=f"mbpb_{mi}")
                 mb["analytical_batch"]=mc2[1].text_input("An. Batch",mb.get("analytical_batch",""),key=f"mbab_{mi}")
@@ -1157,10 +1176,8 @@ def main():
                 lc=st.columns(4)
                 lcs_b["prep_method"]=lc[0].text_input("Prep",lcs_b.get("prep_method",""),key=f"lpm_{li}")
                 lcs_b["analytical_method"] = _method_selectbox(lc[1], "Analytical", lcs_b.get("analytical_method",""), f"lam_{li}")
-                lcs_b["prep_date"]=lc[2].date_input("Prep Date",
-                    lcs_b.get("prep_date") or date.today(), key=f"lpd_{li}")
-                lcs_b["analyzed_date"]=lc[3].date_input("Analyzed Date",
-                    lcs_b.get("analyzed_date") or date.today(), key=f"lad_{li}")
+                lcs_b["prep_date"]=lc[2].date_input("Prep Date", _safe_date(lcs_b.get("prep_date")), key=f"lpd_{li}")
+                lcs_b["analyzed_date"]=lc[3].date_input("Analyzed Date", _safe_date(lcs_b.get("analyzed_date")), key=f"lad_{li}")
                 lc2=st.columns(4)
                 lcs_b["prep_batch"]=lc2[0].text_input("Prep Batch",lcs_b.get("prep_batch",""),key=f"lpb_{li}")
                 lcs_b["analytical_batch"]=lc2[1].text_input("An. Batch",lcs_b.get("analytical_batch",""),key=f"lab_{li}")
@@ -1192,10 +1209,8 @@ def main():
         rcd = st.session_state.receipt
         rc1, rc2 = st.columns(2)
         with rc1:
-            rcd["date_received_receipt"]=st.date_input("Date Received",
-                rcd.get("date_received_receipt") or date.today(), key="rdt_d")
-            rcd["time_received_receipt"]=st.time_input("Time Received",
-                rcd.get("time_received_receipt") or None, key="rdt_t")
+            rcd["date_received_receipt"]=st.date_input("Date Received", _safe_date(rcd.get("date_received_receipt")), key="rdt_d")
+            rcd["time_received_receipt"]=st.time_input("Time Received", _safe_time(rcd.get("time_received_receipt")), key="rdt_t")
             rcd["received_by"]=st.text_input("Received By",rcd["received_by"],key="rrb")
             rcd["carrier_name"]=st.text_input("Carrier",rcd["carrier_name"],key="rcn")
         with rc2:
@@ -1224,12 +1239,10 @@ def main():
         lc1, lc2 = st.columns(2)
         with lc1:
             ls["qc_level"]=st.selectbox("QC Level",["I","II","III","IV"],index=1,key="lsqc")
-            ls["report_due_date"]=st.date_input("Report Due Date",
-                ls.get("report_due_date") or date.today(), key="lsrd")
+            ls["report_due_date"]=st.date_input("Report Due Date", _safe_date(ls.get("report_due_date")), key="lsrd")
         with lc2:
             ls["tat_requested"]=st.selectbox("TAT",["Standard (5-10 Day)","1-Day Rush","2-Day Rush","3-Day Rush","4-Day Rush"],key="lstat")
-            ls["date_received_login"]=st.date_input("Date Received (Login)",
-                ls.get("date_received_login") or date.today(), key="lsdr")
+            ls["date_received_login"]=st.date_input("Date Received (Login)", _safe_date(ls.get("date_received_login")), key="lsdr")
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 5: Generate COA
