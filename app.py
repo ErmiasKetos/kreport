@@ -429,13 +429,13 @@ class KelpCOA:
 
         if self.d.get('qc_met', True):
             s.append(Paragraph(
-                "Unless otherwise indicated, no issues were encountered with receiving, preparation, "
-                "analysis, or reporting of results associated with this work order.", bs))
+                "Water samples were received without an intact Chain of Custody (COC). "
+                "Documentation was missing or incomplete upon arrival.", bs))
         if not self.d.get('method_blank_corrected', False):
             s.append(Paragraph(
-                "Unless otherwise indicated, no results have been method blank or field blank corrected.", bs))
+                "Analysis followed standard methodologies. All Quality Control (QC) metrics met acceptance criteria unless otherwise flagged. Unless otherwise indicated, no results have been method blank or field blank corrected.", bs))
         s.append(Paragraph(
-            "Reported results relate only to the items/samples as received and tested by the laboratory.", bs))
+            "Results relate exclusively to the samples as received and tested by the laboratory.", bs))
       
         return s
 
