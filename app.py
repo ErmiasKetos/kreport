@@ -711,7 +711,7 @@ class KelpCOA:
         cw = [CW*0.16, CW*0.15, CW*0.14, CW*0.08, CW*0.12, CW*0.35]
         rows = []
         for samp in self.d.get('samples',[]):
-            tests = ", ".join([pg.get('prep_method','') for pg in samp.get('prep_groups',[])])
+            tests = ", ".join([pg.get('analytical_method','') for pg in samp.get('prep_groups',[])])
             rows.append([
                 samp.get('lab_sample_id',''), samp.get('client_sample_id',''),
                 samp.get('date_sampled',''), samp.get('matrix','Water'),
